@@ -11,7 +11,8 @@ const { a } = Astro.props;
 const num = (n: number | null) => (n ? n.toLocaleString('en-US') : null);
 const details: [string, string | null][] = [
   ['Format', a.format], ['Episodes', a.episodes ? String(a.episodes) : null],
-  ['Duration', a.duration ? `${a.duration} min` : null], ['Status', a.status === 'RELEASING' ? 'Airing' : a.status?.toLowerCase()],
+  ['Duration', a.duration ? `${a.duration} min` : null],
+  ['Status', a.status === 'RELEASING' ? 'Airing' : (a.status?.[0] + a.status?.slice(1).toLowerCase())],
   ['Aired', a.aired], ['Season', a.season && a.year ? `${a.season} ${a.year}` : null],
   ['Source', a.source], ['Studio', a.studio], ['Popularity', num(a.popularity)], ['Favourites', num(a.favourites)],
 ];
@@ -24,184 +25,135 @@ const jsonLd = {
   genre: a.genres,
 };
 ---
-<Base title={`${a.title} — where to watch & next episode | Watchdex`} desc={a.description?.slice(0, 155) ?? `When ${a.title} airs next and where to watch it.`} bleed>
-  {a.banner ? (
-    <div class="banner">
-      <img src={a.banner} alt="" width="1280" height="300" />
-      <div class="banner-bar"><div class="wrap"><a class="back over" href="/">&larr; Schedule</a></div></div>
-    </div>
-  ) : (
-    <div class="wrap topbar"><a class="back" href="/">&larr; Schedule</a></div>
-  )}
-
-  <div class="wrap entity" class:list={[{ hasbanner: a.banner }]}>
-    <header class="hero">
-      <div class="poster" style={a.color ? `background:${a.color}` : undefined}>
-        <img src={a.cover} alt={a.title} width="200" height="283" />
-      </div>
+<Base title={`${a.title} — where to watch & next episode | Watchdex`} desc={a.description?.slice(0, 155) ?? `When ${a.title} airs next and where to watch it.`}>
+  <section class="hero" style={a.color ? `--c:${a.color}` : undefined}>
+    <div class="wrap"><a class="back" href="/">&larr; Schedule</a></div>
+    <div class="wrap hero-in">
+      <div class="poster"><img src={a.cover} alt={a.title} width="220" height="311" fetchpriority="high" /></div>
       <div class="head">
         <h1 class="h1">{a.title}</h1>
-        {(a.english || a.native) && <p class="alt">{[a.english, a.native].filter(Boolean).filter((x) => x !== a.title).join('  ·  ')}</p>}
+        {(a.english || a.native) && <p class="alt">{[a.english, a.native].filter((x) => x && x !== a.title).join('  ·  ')}</p>}
         <p class="metaline">
           {a.score && <span class:list={['score', { hi: a.score >= 75 }]}>{a.score}%</span>}
           {[a.format, a.episodes ? `${a.episodes} eps` : null, a.aired, a.studio].filter(Boolean).map((m) => <span class="m">{m}</span>)}
         </p>
         <div class="chips">
-          {a.genres.map((g) => <span class="chip g">{g}</span>)}
+          {a.genres.map((g) => <span class="chip chip-accent">{g}</span>)}
           {a.tags.slice(0, 4).map((t) => <span class="chip">{t}</span>)}
         </div>
       </div>
-    </header>
-
-    <div class="grid">
-      <main class="content">
-        {a.nextEp && (
-          <section class="next-card">
-            <p class="eyebrow">Next episode</p>
-            <p class="next-line"><span class="ep mono">EP {a.nextEp.episode}</span> <span class="in">airs in</span> <Countdown airAt={a.nextEp.airingAt} /></p>
-          </section>
-        )}
-
-        {a.description && (
-          <section class="sec">
-            <h2 class="sec-h">Synopsis</h2>
-            <p class="desc">{a.description}</p>
-          </section>
-        )}
-
-        {a.characters.length > 0 && (
-          <section class="sec">
-            <h2 class="sec-h">Characters &amp; voice cast</h2>
-            <div class="chars">
-              {a.characters.map((c) => (
-                <div class="char">
-                  <div class="cside">
-                    <img class="cim" src={c.image} alt="" loading="lazy" width="38" height="52" />
-                    <div class="cinfo"><span class="cname">{c.name}</span><span class="crole">{c.role}</span></div>
-                  </div>
-                  {c.va && (
-                    <div class="vside">
-                      <span class="vname">{c.va}</span>
-                      {c.vaImage && <img class="vim" src={c.vaImage} alt="" loading="lazy" width="38" height="52" />}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {a.relations.length > 0 && (
-          <section class="sec">
-            <h2 class="sec-h">Related</h2>
-            <div class="mini-grid">{a.relations.map((m) => <MiniCard m={m} />)}</div>
-          </section>
-        )}
-
-        {a.recommendations.length > 0 && (
-          <section class="sec">
-            <h2 class="sec-h">You might also like</h2>
-            <div class="mini-grid">{a.recommendations.map((m) => <MiniCard m={m} />)}</div>
-          </section>
-        )}
-      </main>
-
-      <aside class="side">
-        <section class="panel">
-          <h2 class="eyebrow">Details</h2>
-          <dl class="dl">
-            {details.filter(([, v]) => v).map(([k, v]) => (
-              <div class="dl-row"><dt>{k}</dt><dd>{v}</dd></div>
-            ))}
-          </dl>
-        </section>
-        <section class="panel">
-          <h2 class="eyebrow">Where to watch</h2>
-          {a.streams.length > 0 ? (
-            <div class="watch">{a.streams.map((s) => <a class="prov" href={s.url} rel="nofollow noopener" target="_blank">{s.site} &rarr;</a>)}</div>
-          ) : (<p class="nostream">No streaming links yet.</p>)}
-        </section>
-      </aside>
     </div>
+  </section>
+
+  <div class="wrap body">
+    <main class="content">
+      {a.nextEp && (
+        <div class="next-card">
+          <span class="eyebrow">Next episode</span>
+          <p class="next-line"><span class="ep mono">EP {a.nextEp.episode}</span> <span class="in">airs in</span> <Countdown airAt={a.nextEp.airingAt} class="big" /></p>
+        </div>
+      )}
+
+      {a.description && (
+        <section class="sec"><h2 class="sec-h">Synopsis</h2><p class="desc">{a.description}</p></section>
+      )}
+
+      {a.characters.length > 0 && (
+        <section class="sec">
+          <h2 class="sec-h">Characters &amp; cast</h2>
+          <div class="chars">
+            {a.characters.map((c) => (
+              <div class="char">
+                <span class="cside"><img class="cim" src={c.image} alt="" loading="lazy" width="36" height="50" /><span class="cinfo"><span class="cname">{c.name}</span><span class="crole">{c.role}</span></span></span>
+                {c.va && <span class="vside"><span class="vname">{c.va}</span>{c.vaImage && <img class="vim" src={c.vaImage} alt="" loading="lazy" width="36" height="50" />}</span>}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {a.relations.length > 0 && (
+        <section class="sec"><h2 class="sec-h">Related</h2><div class="mini-grid">{a.relations.map((m) => <MiniCard m={m} />)}</div></section>
+      )}
+
+      {a.recommendations.length > 0 && (
+        <section class="sec"><h2 class="sec-h">You might also like</h2><div class="mini-grid">{a.recommendations.map((m) => <MiniCard m={m} />)}</div></section>
+      )}
+    </main>
+
+    <aside class="side">
+      <section class="panel">
+        <span class="eyebrow">Details</span>
+        <dl class="dl">{details.filter(([, v]) => v).map(([k, v]) => <div class="dl-row"><dt>{k}</dt><dd>{v}</dd></div>)}</dl>
+      </section>
+      <section class="panel">
+        <span class="eyebrow">Where to watch</span>
+        {a.streams.length > 0
+          ? <div class="watch">{a.streams.map((s) => <a class="prov" href={s.url} rel="nofollow noopener" target="_blank">{s.site} &rarr;</a>)}</div>
+          : <p class="nostream">No streaming links yet.</p>}
+      </section>
+    </aside>
   </div>
 
   <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
 </Base>
 
 <style>
-  .topbar { padding-block: 0.25rem; }
-  .back { display: inline-flex; align-items: center; gap: 0.35rem; white-space: nowrap; color: var(--muted); font-size: var(--t-sm); }
+  .hero { padding-block: 1.5rem 2.5rem; }
+  .back { display: inline-block; color: var(--muted); font-size: var(--t-sm); margin-bottom: 1.5rem; }
   .back:hover { color: var(--accent); }
-  .banner { position: relative; height: 300px; overflow: hidden; }
-  .banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(10,12,18,.5) 0, transparent 100px), linear-gradient(to bottom, transparent 45%, var(--bg) 98%); }
-  .banner-bar { position: absolute; top: 1rem; inset-inline: 0; }
-  .back.over { color: #fff; background: rgba(15,18,25,.42); backdrop-filter: blur(8px); padding: 0.4rem 0.85rem; border-radius: 999px; }
-  .back.over:hover { background: rgba(15,18,25,.62); color: #fff; }
-
-  .entity { max-width: var(--col); }
-  .entity.hasbanner { margin-top: -140px; position: relative; }
-
-  .hero { display: flex; gap: 2rem; align-items: flex-end; }
-  .poster { width: 11rem; flex: none; aspect-ratio: 23/32; border-radius: 16px; overflow: hidden; box-shadow: 0 14px 36px -16px rgba(0,0,0,.4); background: var(--bg-soft); }
-  .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .head { min-width: 0; padding-bottom: 0.5rem; }
-  .h1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.03em; line-height: 1.04; }
+  .hero-in { display: flex; gap: 2.25rem; align-items: flex-end; }
+  .poster { width: 11rem; flex: none; aspect-ratio: 23/32; border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+  .poster img { width: 100%; height: 100%; object-fit: cover; }
+  .head { min-width: 0; padding-bottom: 0.4rem; }
+  .h1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
   .alt { color: var(--muted); margin-top: 0.45rem; font-size: var(--t-sm); }
-  .metaline { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.9rem; font-size: var(--t-sm); color: var(--muted); }
-  .score { font-family: var(--font-mono); font-weight: 700; color: #fff; background: var(--muted); padding: 0.1rem 0.45rem; border-radius: 6px; }
-  .score.hi { background: var(--live); }
-  .m + .m::before, .score + .m::before { content: '·'; color: var(--line-2); margin-right: 0.6rem; }
-  .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.9rem; }
-  .chip { font-size: var(--t-xs); color: var(--muted); background: var(--bg-soft); padding: 0.2rem 0.65rem; border-radius: 999px; }
-  .chip.g { color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+  .metaline { display: flex; align-items: center; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.9rem; font-size: var(--t-sm); color: var(--muted); }
+  .m + .m::before, .score + .m::before { content: '·'; color: var(--faint); margin-right: 0.55rem; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.85rem; }
 
-  .grid { display: grid; grid-template-columns: 1fr 16rem; gap: 3rem; margin-top: 2.75rem; align-items: start; }
-  .next-card { background: var(--accent-soft); border-radius: 14px; padding: 1.15rem 1.35rem; margin-bottom: 2.25rem; }
+  .body { display: grid; grid-template-columns: 1fr 16rem; gap: 2.75rem; align-items: start; }
+  .next-card { background: var(--accent-soft); border-radius: var(--r); padding: 1.1rem 1.3rem; margin-bottom: 2.25rem; }
   .next-line { display: flex; align-items: baseline; gap: 0.55rem; margin-top: 0.5rem; font-size: var(--t-lg); }
-  .next-line .ep { color: var(--ink); font-weight: 700; }
+  .next-line .ep { font-weight: 700; }
   .next-line .in { color: var(--muted); font-size: var(--t-md); }
-  .next-line :global(.cd-num) { color: var(--accent); font-weight: 700; min-width: 6ch; }
+  .next-line :global(.cd-num.big) { color: var(--accent); font-weight: 700; min-width: 6ch; }
 
   .sec { margin-bottom: 2.5rem; }
-  .sec-h { font-family: var(--font-display); font-size: var(--t-md); font-weight: 700; letter-spacing: -0.01em; padding-bottom: 0.7rem; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
-  .desc { color: var(--muted); line-height: 1.8; }
+  .sec-h { font-family: var(--font-display); font-size: var(--t-md); font-weight: 700; letter-spacing: -0.01em; padding-bottom: 0.7rem; border-bottom: 1px solid var(--line); margin-bottom: 1.1rem; }
+  .desc { color: var(--muted); line-height: 1.8; max-width: 70ch; }
 
-  .chars { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.65rem; }
-  .char { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: var(--bg-soft); border-radius: 10px; padding: 0.5rem 0.6rem; overflow: hidden; }
+  .chars { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+  .char { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: var(--bg-soft); border-radius: var(--r-sm); padding: 0.5rem 0.6rem; overflow: hidden; }
   .cside, .vside { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
-  .vside { text-align: right; flex-direction: row-reverse; }
-  .cim, .vim { width: 2.2rem; height: 3rem; border-radius: 6px; object-fit: cover; flex: none; background: var(--bg-soft); }
+  .vside { flex-direction: row-reverse; text-align: right; }
+  .cim, .vim { width: 2.1rem; height: 2.9rem; border-radius: 5px; object-fit: cover; flex: none; }
   .cinfo { display: flex; flex-direction: column; min-width: 0; }
-  .vside .vname { min-width: 0; }
-  .cname, .vname { font-size: var(--t-xs); font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cname, .vname { font-size: var(--t-xs); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .crole { font-size: 0.66rem; color: var(--faint); }
 
-  .mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 1.1rem 0.85rem; }
+  .mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 1.1rem 0.85rem; }
 
-  .side { display: flex; flex-direction: column; gap: 1.75rem; position: sticky; top: 5.5rem; }
-  .panel .eyebrow { display: block; margin-bottom: 0.85rem; }
-  .dl { display: flex; flex-direction: column; }
-  .dl-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.5rem 0; border-bottom: 1px solid var(--line); font-size: var(--t-sm); }
+  .side { display: flex; flex-direction: column; gap: 1.75rem; position: sticky; top: 5.25rem; }
+  .panel .eyebrow { display: block; margin-bottom: 0.8rem; }
+  .dl-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.48rem 0; border-bottom: 1px solid var(--line); font-size: var(--t-sm); }
   .dl-row:last-child { border-bottom: 0; }
   .dl-row dt { color: var(--muted); }
-  .dl-row dd { color: var(--ink); font-weight: 500; text-align: right; }
-  .watch { display: flex; flex-direction: column; gap: 0.5rem; }
-  .prov { background: var(--bg-soft); border-radius: 9px; padding: 0.55rem 0.9rem; font-size: var(--t-sm); font-weight: 500; color: var(--ink); transition: background .15s, color .15s; }
+  .dl-row dd { font-weight: 500; text-align: right; }
+  .watch { display: flex; flex-direction: column; gap: 0.45rem; }
+  .prov { background: var(--bg-soft); border-radius: var(--r-sm); padding: 0.55rem 0.85rem; font-size: var(--t-sm); font-weight: 500; transition: background .15s, color .15s; }
   .prov:hover { background: var(--accent-soft); color: var(--accent); }
   .nostream { color: var(--faint); font-size: var(--t-sm); }
 
   @media (max-width: 820px) {
-    .grid { grid-template-columns: 1fr; gap: 2.25rem; }
+    .body { grid-template-columns: 1fr; gap: 2rem; }
     .side { position: static; flex-direction: row; flex-wrap: wrap; }
-    .side .panel { flex: 1; min-width: 14rem; }
+    .side .panel { flex: 1; min-width: 13rem; }
   }
   @media (max-width: 560px) {
-    .hero { gap: 1.1rem; }
-    .poster { width: 6.5rem; border-radius: 12px; }
+    .hero-in { gap: 1.1rem; }
+    .poster { width: 6.5rem; }
     .h1 { font-size: var(--t-xl); }
-    .banner { height: 190px; }
-    .entity.hasbanner { margin-top: -84px; }
     .chars { grid-template-columns: 1fr; }
   }
 </style>

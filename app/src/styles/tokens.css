@@ -1,63 +1,72 @@
-/* Watchdex design tokens — LIGHT, airy, professional.
-   Generous whitespace; covers carry color; one violet accent for live/interactive. */
+/* Watchdex design system — one source of truth. Light, minimal, harmonious.
+   Shared primitives (.chip, .score, .eyebrow, .wrap) live here so every
+   component speaks the same visual language. */
 :root {
-  /* color (light) */
-  --bg:       #FFFFFF;
-  --bg-soft:  #F7F8FB;   /* hover / quiet sections */
-  --line:     #ECEDF3;   /* hairline */
-  --line-2:   #E2E4EC;
-  --ink:      #16181F;   /* primary text */
-  --muted:    #5C6373;   /* secondary */
-  --faint:    #9AA0AE;   /* tertiary / labels */
-  --accent:   #6D5BFF;   /* brand + interactive + imminent countdown */
-  --accent-soft: #F0EEFF;
-  --live:     #22C55E;   /* on-air dot only */
+  --bg:        #FFFFFF;
+  --bg-soft:   #F5F6F9;   /* cards, chips, hover */
+  --line:      #ECEDF2;   /* hairlines */
+  --ink:       #14161D;   /* headings / primary text */
+  --muted:     #5F6676;   /* secondary */
+  --faint:     #9AA0AE;   /* tertiary / labels */
+  --accent:    #6C5CE7;   /* the one accent */
+  --accent-soft: #EEEBFF;
+  --live:      #16B364;   /* airing now */
 
-  /* type */
   --font-display: 'Space Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
   --font-body:    'Hanken Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-mono:    'Space Mono', ui-monospace, 'SF Mono', monospace;
+  --font-mono:    'Space Mono', ui-monospace, monospace;
 
-  /* scale */
-  --t-xs: 0.75rem;
-  --t-sm: 0.8125rem;
-  --t-base: 0.9375rem;
-  --t-md: 1rem;
-  --t-lg: 1.25rem;
-  --t-xl: 1.75rem;
-  --t-2xl: 2.75rem;
+  --t-xs: 0.75rem; --t-sm: 0.8125rem; --t-base: 0.9375rem; --t-md: 1rem;
+  --t-lg: 1.25rem; --t-xl: 1.75rem; --t-2xl: 2.4rem;
 
-  /* rhythm — deliberately generous */
-  --col: 58rem;
+  --col: 62rem;
   --pad: 1.5rem;
-  --radius: 12px;
+  --r: 12px; --r-sm: 8px;
+  --shadow: 0 10px 30px -14px rgba(20, 24, 40, 0.22);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { -webkit-text-size-adjust: 100%; }
-
 body {
-  background: var(--bg);
-  color: var(--ink);
-  font-family: var(--font-body);
-  font-size: var(--t-base);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: var(--t-base); line-height: 1.6;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
 }
-
 a { color: inherit; text-decoration: none; }
+img { display: block; }
 ::selection { background: var(--accent); color: #fff; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 5px; }
 
+/* layout */
 .wrap { width: 100%; max-width: var(--col); margin-inline: auto; padding-inline: var(--pad); }
+
+/* primitives */
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
 
 .eyebrow {
-  font-family: var(--font-display);
-  font-size: var(--t-xs);
-  font-weight: 600;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-  color: var(--faint);
+  font-family: var(--font-display); font-size: var(--t-xs); font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint);
 }
+
+.chip {
+  display: inline-block; font-size: var(--t-xs); color: var(--muted);
+  background: var(--bg-soft); padding: 0.2rem 0.65rem; border-radius: 999px; white-space: nowrap;
+}
+.chip-accent { color: var(--accent); background: var(--accent-soft); }
+
+.score {
+  font-family: var(--font-mono); font-weight: 700; color: #fff;
+  background: var(--faint); padding: 0.12rem 0.45rem; border-radius: 6px;
+}
+.score.hi { background: var(--live); }
+
+/* section header used across pages */
+.section-h {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.section-h h2 {
+  font-family: var(--font-display); font-size: var(--t-lg); font-weight: 700; letter-spacing: -0.02em;
+}
+.section-h a { font-size: var(--t-sm); color: var(--muted); }
+.section-h a:hover { color: var(--accent); }

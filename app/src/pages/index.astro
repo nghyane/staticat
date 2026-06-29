@@ -7,27 +7,26 @@ import { getAnime, airingNext } from '../lib/catalog';
 
 const all = getAnime();
 const airing = airingNext();
-const featured = all.find((a) => a.banner) ?? all[0]!;
 const upNext = airing.slice(0, 8);
 const trending = all.slice(0, 18);
 const counts = new Map<string, number>();
 for (const a of airing) if (a.season && a.year) counts.set(`${a.season} ${a.year}`, (counts.get(`${a.season} ${a.year}`) ?? 0) + 1);
 const seasonLabel = [...counts.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? 'This season';
 ---
-<Base bleed>
-  <Hero a={featured} season={seasonLabel} />
+<Base>
+  <Hero featured={all.find((a) => a.nextEp) ?? all[0]!} season={seasonLabel} count={airing.length} />
 
   <div class="wrap">
     {upNext.length > 0 && (
       <section class="block">
-        <header class="block-hd"><h2>Airing next</h2><a class="more" href="/">Full schedule &rarr;</a></header>
+        <header class="section-h"><h2>Airing next</h2><a href="/">Full schedule &rarr;</a></header>
         <div class="rows">{upNext.map((a) => <ScheduleRow a={a} />)}</div>
       </section>
     )}
 
     {trending.length > 0 && (
       <section class="block">
-        <header class="block-hd"><h2>Trending this season</h2></header>
+        <header class="section-h"><h2>Trending this season</h2></header>
         <div class="grid">{trending.map((a) => <MediaCard a={a} />)}</div>
       </section>
     )}
@@ -35,12 +34,8 @@ const seasonLabel = [...counts.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ??
 </Base>
 
 <style>
-  .block { margin-top: 3.75rem; }
-  .block-hd { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 1.25rem; }
-  .block-hd h2 { font-family: var(--font-display); font-size: var(--t-lg); font-weight: 700; letter-spacing: -0.02em; }
-  .more { font-size: var(--t-sm); color: var(--muted); }
-  .more:hover { color: var(--accent); }
+  .block { margin-top: 3.5rem; }
   .rows { display: flex; flex-direction: column; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 2rem 1.25rem; }
-  @media (max-width: 560px) { .grid { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 1.5rem 0.85rem; } }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 1.9rem 1.2rem; }
+  @media (max-width: 560px) { .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 1.4rem 0.8rem; } }
 </style>
