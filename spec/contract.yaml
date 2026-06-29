@@ -78,21 +78,37 @@ entities:
         fields: { partId: string, titleId: string, kind: video-hls, playlist: blob_token, dur: int_s, variants: "{h:int,bw:int}[]" }
         example: { partId: "mov:1", titleId: mov, kind: video-hls, playlist: "r2:mov/1/master.m3u8", dur: 5400, variants: [ { h: 1080, bw: 5000000 } ] }
 
-  FeedEntry:                        # denormalized → list view 1 fetch
+  CatalogEntry:                     # card denormalized — dùng cho MỌI listing
+    note: "mang đủ facet (status, genres) để client LỌC tại chỗ, không fetch thêm"
+    fields:
+      id:     string
+      kind:   "comic | video"
+      title:  string
+      cover:  blob_token
+      status: "ongoing | completed | hiatus"   # -> lọc tình trạng
+      genres: string[]                          # -> lọc thể loại
+      alt:    "string[]  (tuỳ chọn — tên phụ cho search)"
+      latest: "{ partId, no, at }"              # part mới nhất (card "Ch.120")
+
+  FeedLatest:
     path: /v1/feed/latest/{page}.json     # page 0 = pointer (SWR); còn lại immutable
     mutability: "page0=pointer, else immutable"
-    shape: "FeedEntry[]"
-    fields: { titleId: string, kind: "comic|video", title: string, cover: blob_token, partId: string, no: string, at: epoch_s }
+    shape: "CatalogEntry[]"
 
   Popular:
     path: /v1/feed/popular/{period}.json  # period: day|week|all
     mutability: pointer
-    shape: "FeedEntry[]"
+    shape: "CatalogEntry[]"
 
-  Genre:
+  Genre:                            # 1 listing precompute / thể loại
     path: /v1/genre/{slug}/{page}.json
     mutability: immutable
-    shape: "FeedEntry[]"
+    shape: "CatalogEntry[]"
+
+  Status:                           # 1 listing precompute / tình trạng
+    path: /v1/status/{status}/{page}.json   # status: ongoing|completed|hiatus
+    mutability: immutable
+    shape: "CatalogEntry[]"
 
   SearchHead:
     path: /v1/search/head.json
@@ -102,8 +118,8 @@ entities:
   SearchIndex:
     path: /v1/search/index.v{N}.json
     mutability: immutable
-    shape: "SearchEntry[]"
-    SearchEntry: { id: string, kind: "comic|video", title: string, alt: string[], cover: blob_token }
+    shape: "CatalogEntry[]  (có .alt để khớp tên phụ)"
+    note: "catalog nhỏ: client tải hết, lọc in-memory. Lớn: B-tree Range -> id-list (xem query.scale)"
 
 # ── Read flows ───────────────────────────────────────────────────────────────
 read_flows:
@@ -113,6 +129,15 @@ read_flows:
   watch:  "GET part/{partId} → <video src=resolve(blob)> (Range seek) | HLS player"
   search: "GET search/head → index.v{ver} (client-side filter)"
 
+# ── Lọc & tìm kiếm (không server — precompute facet + client refine) ─────────
+query:
+  by_name:     "tải search/index.v{N} -> lọc substring/fuzzy in-memory (catalog nhỏ)"
+  by_genre:    "GET genre/{slug}/{page}  (listing precompute / thể loại)"
+  by_status:   "GET status/{status}/{page}  HOẶC refine client-side (CatalogEntry.status)"
+  combine_AND: "nhiều facet: tải facet NHỎ NHẤT rồi lọc client-side trên .genres/.status/.title"
+  sort:        "precompute biến thể (latest/popular) hoặc sort client-side trên page đã tải"
+  scale:       "catalog lớn: mỗi facet = nozomi id-list (sorted) -> client INTERSECT (Hitomi-style); name=B-tree Range -> id-list; intersect rồi resolve sang CatalogEntry"
+
 # ── Write order (xem docs/ingestion.md) ──────────────────────────────────────
 write_order:
   - "1. upload blob part (immutable)"
@@ -120,5 +145,5 @@ write_order:
   - "3. ghi title/{id}/parts/{chunk}.v{n+1} (immutable)"
   - "4. bump title/{id}/head.json — POINTER, GHI CUỐI"
   - "5. prepend feed/latest/0.json"
-  - "6. mark search dirty → rebuild index.v{N+1} + bump search/head"
+  - "6. mark facets dirty → rebuild genre/status/search.v{N+1} + bump search/head"
   rule: "immutable TRƯỚC, pointer SAU; idempotent (hash-based)"

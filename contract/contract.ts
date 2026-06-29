@@ -62,10 +62,30 @@ export interface VideoMp4Part { partId: string; titleId: string; kind: "video-mp
 export interface VideoHlsPart { partId: string; titleId: string; kind: "video-hls"; playlist: BlobToken; dur: number; variants: { h: number; bw: number }[]; }
 export type PartIndex = ComicPart | VideoMp4Part | VideoHlsPart;
 
-// ── Feed / search (denormalized → list view 1 fetch) ────────────────────────
-export interface FeedEntry { titleId: string; kind: WorkKind; title: string; cover: BlobToken; partId: string; no: string; at: number; }
-export interface SearchEntry { id: string; kind: WorkKind; title: string; alt: string[]; cover: BlobToken; }
+// ── CatalogEntry — card denormalized cho MỌI listing (feed/genre/status/search)
+// Mang đủ facet (status, genres) để client LỌC tại chỗ, không cần server/fetch thêm.
+export interface CatalogEntry {
+  id: string;
+  kind: WorkKind;
+  title: string;
+  cover: BlobToken;
+  status: Status;
+  genres: string[];
+  alt?: string[];                                   // tên phụ (search)
+  latest: { partId: string; no: string; at: number };
+}
 export interface SearchHead { ver: number; }
+
+// Lọc client-side trên 1 listing đã tải (genre/status/feed/search) — không server.
+export interface CatalogFilter { name?: string; genre?: string; status?: Status; }
+export function filterEntries(list: CatalogEntry[], f: CatalogFilter): CatalogEntry[] {
+  const q = f.name?.trim().toLowerCase();
+  return list.filter((e) =>
+    (!f.genre  || e.genres.includes(f.genre)) &&
+    (!f.status || e.status === f.status) &&
+    (!q || e.title.toLowerCase().includes(q) || (e.alt ?? []).some((a) => a.toLowerCase().includes(q)))
+  );
+}
 
 // ── Path builders (1 nguồn chân lý cho URL) ─────────────────────────────────
 export const paths = {
@@ -76,6 +96,7 @@ export const paths = {
   feedLatest: (page: number) => `${P}/feed/latest/${page}.json`,
   feedPopular: (period: "day" | "week" | "all") => `${P}/feed/popular/${period}.json`,
   genre: (slug: string, page: number) => `${P}/genre/${slug}/${page}.json`,
+  status: (status: Status, page: number) => `${P}/status/${status}/${page}.json`,
   searchHead: () => `${P}/search/head.json`,
   searchIndex: (ver: number) => `${P}/search/index.v${ver}.json`,
 } as const;

@@ -38,7 +38,22 @@
 - Part list **chunk hoá**: chunk mới nhất versioned, chunk cũ immutable → append không ghi lại chunk cũ.
 
 ## Denormalization
-`feed`/`search`/`genre` entry **tự chứa** `{title, cover, …}` → list view **1 fetch** là render. Detail view mới fetch record đầy đủ.
+`feed`/`search`/`genre`/`status` entry là **CatalogEntry tự chứa** `{title, cover, status, genres[], latest}` → list view **1 fetch** là render. Detail view mới fetch record đầy đủ.
+
+## Lọc & tìm kiếm (không server)
+Mỗi facet = **1 listing tĩnh dựng sẵn** (kiểu Hitomi nozomi). Vì entry mang đủ facet, client refine tại chỗ.
+
+| Truy vấn | Cách |
+|---|---|
+| Theo **tên** | tải `search/index.v{N}` (CatalogEntry[]) -> lọc substring/fuzzy in-memory |
+| Theo **thể loại** | `GET genre/{slug}/{page}` |
+| Theo **tình trạng** | `GET status/{status}/{page}` hoặc lọc client-side trên `.status` |
+| **Kết hợp AND** | tải facet NHỎ NHẤT -> lọc client-side trên `.genres`/`.status`/`.title` (`filterEntries()` trong contract.ts) |
+| **Sắp xếp** | precompute biến thể (latest/popular) hoặc sort client-side trên page đã tải |
+
+**Catalog lớn (tránh tải nguyên facet):** mỗi facet = **nozomi id-list** (mảng id sorted); client tải các id-list cần rồi **INTERSECT** (set giao) — đúng cơ chế Hitomi; tên = B-tree Range -> id-list; intersect xong resolve id -> CatalogEntry. Không product explosion, không server.
+
+Ingest **dựng lại** các facet (genre/status/search) khi catalog đổi (xem `docs/ingestion.md`).
 
 ## Resilience
 | Thành phần CHẾT | Đọc site | Nội dung mới |
