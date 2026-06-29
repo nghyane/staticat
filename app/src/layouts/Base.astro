@@ -24,7 +24,7 @@ const tabs = [
     <ClientRouter />
   </head>
   <body>
-    <header class="hdr" transition:persist>
+    <header class:list={['hdr', { overlay: bleed }]}>
       <div class="wrap hdr-in">
         <a class="brand" href="/">
           <span class="mark" aria-hidden="true"></span>watchdex
@@ -68,14 +68,31 @@ const tabs = [
         tick();
         clearInterval(timer);
         timer = setInterval(tick, 1000) as unknown as number;
+        syncHeader();
       }
+      function syncHeader() {
+        const hdr = document.querySelector('.hdr');
+        if (hdr) hdr.classList.toggle('scrolled', window.scrollY > 8);
+      }
+      window.addEventListener('scroll', syncHeader, { passive: true });
       document.addEventListener('astro:page-load', start);
     </script>
 
     <style>
-      .hdr { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(12px) saturate(1.3); border-bottom: 1px solid var(--line); }
+      .hdr { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(12px) saturate(1.3); border-bottom: 1px solid var(--line); transition: background .3s ease, border-color .3s ease, backdrop-filter .3s ease; }
       .hdr-in { display: flex; align-items: stretch; gap: 1.5rem; height: 4.25rem; }
+      .brand, .tab, .search, .search svg, .search input, .search kbd, .mark { transition: color .3s ease, background-color .3s ease, border-color .3s ease, box-shadow .3s ease; }
       .brand { display: inline-flex; align-items: center; gap: 0.55rem; font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--ink); }
+
+      /* Overlay header: transparent over the hero banner (white text), turns solid on scroll. */
+      .hdr.overlay:not(.scrolled) { background: transparent; backdrop-filter: none; border-color: transparent; }
+      .hdr.overlay:not(.scrolled) .brand, .hdr.overlay:not(.scrolled) .tab { color: #fff; }
+      .hdr.overlay:not(.scrolled) .mark { background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.28); }
+      .hdr.overlay:not(.scrolled) .tab.on::after { background: #fff; }
+      .hdr.overlay:not(.scrolled) .search { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.22); }
+      .hdr.overlay:not(.scrolled) .search svg, .hdr.overlay:not(.scrolled) .search input { color: rgba(255,255,255,.92); }
+      .hdr.overlay:not(.scrolled) .search input::placeholder { color: rgba(255,255,255,.72); }
+      .hdr.overlay:not(.scrolled) .search kbd { color: rgba(255,255,255,.72); background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.24); }
       .mark { width: 0.65rem; height: 0.65rem; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
       .tabs { display: flex; align-items: stretch; gap: 0.15rem; }
       .tab { display: inline-flex; align-items: center; position: relative; font-size: var(--t-sm); font-weight: 500; color: var(--muted); padding: 0 0.65rem; transition: color .15s; }

@@ -134,7 +134,7 @@ const jsonLd = {
   .back:hover { color: var(--accent); }
   .banner { position: relative; height: 300px; overflow: hidden; }
   .banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 45%, var(--bg) 98%); }
+  .banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(10,12,18,.5) 0, transparent 100px), linear-gradient(to bottom, transparent 45%, var(--bg) 98%); }
   .banner-bar { position: absolute; top: 1rem; inset-inline: 0; }
   .back.over { color: #fff; background: rgba(15,18,25,.42); backdrop-filter: blur(8px); padding: 0.4rem 0.85rem; border-radius: 999px; }
   .back.over:hover { background: rgba(15,18,25,.62); color: #fff; }
