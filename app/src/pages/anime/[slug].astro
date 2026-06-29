@@ -1,75 +1,109 @@
 ---
 import Base from '../../layouts/Base.astro';
 import Countdown from '../../components/Countdown.astro';
-import { schedule } from '../../data/mock';
+import { getAnime } from '../../lib/catalog';
 
 export function getStaticPaths() {
-  return schedule.flatMap((d) => d.entries).map((entry) => ({
-    params: { slug: entry.slug },
-    props: { entry },
-  }));
+  return getAnime().map((a) => ({ params: { slug: a.slug }, props: { a } }));
 }
-const { entry } = Astro.props;
-const hue = [...entry.slug].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
-const cover = `linear-gradient(140deg, hsl(${hue} 62% 70%), hsl(${(hue + 38) % 360} 64% 56%))`;
-const initial = entry.title.replace(/[^A-Za-z0-9]/g, '').slice(0, 1).toUpperCase();
+const { a } = Astro.props;
+const meta = [a.format, a.episodes ? `${a.episodes} episodes` : null, a.season && a.year ? `${a.season} ${a.year}` : null, a.studio].filter(Boolean);
 const jsonLd = {
-  '@context': 'https://schema.org', '@type': 'TVSeries', name: entry.title,
-  numberOfEpisodes: entry.ep, episode: { '@type': 'TVEpisode', episodeNumber: entry.ep },
+  '@context': 'https://schema.org', '@type': 'TVSeries', name: a.title,
+  ...(a.english ? { alternateName: a.english } : {}),
+  ...(a.description ? { description: a.description.slice(0, 280) } : {}),
+  ...(a.cover ? { image: a.cover } : {}),
+  ...(a.score ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: (a.score / 10).toFixed(1), bestRating: 10, ratingCount: 1 } } : {}),
+  genre: a.genres,
 };
 ---
-<Base title={`${entry.title} — where to watch & next episode | Watchdex`} desc={`When ${entry.title} episode ${entry.ep} airs and where to watch it.`}>
-  <div class="wrap entity">
-    <a class="back" href="/">&larr; Back to schedule</a>
+<Base title={`${a.title} — where to watch & next episode | Watchdex`} desc={a.description?.slice(0, 155) ?? `When ${a.title} airs next and where to watch it.`}>
+  {a.banner && <div class="banner"><img src={a.banner} alt="" /></div>}
+  <div class="wrap entity" class:list={[{ hasbanner: a.banner }]}>
+    <a class="back" href="/">&larr; Schedule</a>
 
     <header class="hero">
-      <span class="cover" style={`background:${cover}`} aria-hidden="true">{initial}</span>
+      <div class="poster" style={a.color ? `background:${a.color}` : undefined}>
+        <img src={a.cover} alt={a.title} width="180" height="255" />
+      </div>
       <div class="head">
-        <h1 class="h1">{entry.title}</h1>
-        <p class="meta">TV series &middot; Airing &middot; <span class="mono">{entry.ep - 1} episodes</span></p>
+        <h1 class="h1">{a.title}</h1>
+        {a.english && a.english !== a.title && <p class="alt">{a.english}</p>}
+        <p class="metaline">
+          {a.score && <span class:list={['score', { hi: a.score >= 75 }]}>{a.score}%</span>}
+          {meta.map((m) => <span class="m">{m}</span>)}
+        </p>
+        {a.genres.length > 0 && <div class="genres">{a.genres.map((g) => <span class="chip">{g}</span>)}</div>}
       </div>
     </header>
 
-    <dl class="facts">
-      <div class="fact">
-        <dt class="eyebrow">Next episode</dt>
-        <dd class="next">
-          <span class="mono ep">EP {entry.ep}</span>
-          <span class="next-cd"><span class="in">in</span> <Countdown offsetMin={entry.offsetMin} /></span>
-        </dd>
+    <div class="cols">
+      <div class="left">
+        {a.nextEp && (
+          <section class="card next">
+            <p class="eyebrow">Next episode</p>
+            <p class="next-line"><span class="ep mono">EP {a.nextEp.episode}</span> <span class="in">in</span> <Countdown airAt={a.nextEp.airingAt} /></p>
+          </section>
+        )}
+        {a.description && (
+          <section class="synopsis">
+            <p class="eyebrow">Synopsis</p>
+            <p class="desc">{a.description}</p>
+          </section>
+        )}
       </div>
-      <div class="fact">
-        <dt class="eyebrow">Where to watch</dt>
-        <dd class="watch">
-          {entry.providers.map((p) => <a class="prov" href="#" rel="nofollow">{p} &rarr;</a>)}
-        </dd>
-      </div>
-    </dl>
+      <aside class="right">
+        <p class="eyebrow">Where to watch</p>
+        {a.streams.length > 0 ? (
+          <div class="watch">{a.streams.map((s) => <a class="prov" href={s.url} rel="nofollow noopener" target="_blank">{s.site} &rarr;</a>)}</div>
+        ) : (
+          <p class="nostream">No streaming links yet.</p>
+        )}
+      </aside>
+    </div>
   </div>
 
   <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
 </Base>
 
 <style>
-  .entity { max-width: 42rem; }
-  .back { display: inline-block; color: var(--muted); font-size: var(--t-sm); margin-bottom: 2rem; }
+  .banner { position: relative; height: 220px; overflow: hidden; }
+  .banner img { width: 100%; height: 100%; object-fit: cover; }
+  .banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 30%, var(--bg)); }
+  .entity { max-width: 46rem; }
+  .entity.hasbanner { margin-top: -90px; position: relative; }
+  .back { display: inline-block; color: var(--muted); font-size: var(--t-sm); margin-bottom: 1.5rem; }
   .back:hover { color: var(--accent); }
-  .hero { display: flex; align-items: center; gap: 1.5rem; }
-  .cover { width: 5.5rem; height: 7.5rem; border-radius: 14px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 2.25rem; color: rgba(255,255,255,.92); box-shadow: inset 0 0 0 1px rgba(0,0,0,.06), 0 8px 28px -12px rgba(0,0,0,.2); }
-  .head { min-width: 0; }
+  .hero { display: flex; gap: 1.75rem; align-items: flex-end; }
+  .poster { width: 9rem; flex: none; aspect-ratio: 23/32; border-radius: 14px; overflow: hidden; box-shadow: 0 12px 32px -14px rgba(0,0,0,.35); background: var(--bg-soft); }
+  .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .head { min-width: 0; padding-bottom: 0.35rem; }
   .h1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
-  .meta { color: var(--muted); margin-top: 0.6rem; }
-  .facts { margin-top: 3rem; display: grid; gap: 2rem; }
-  .fact { display: grid; gap: 0.7rem; }
-  .next { display: flex; align-items: baseline; gap: 0.85rem; font-size: var(--t-xl); }
-  .next .ep { color: var(--ink); font-weight: 700; }
-  .next-cd { font-size: var(--t-lg); color: var(--accent); font-weight: 700; }
-  .next-cd .in { color: var(--faint); font-size: var(--t-md); font-weight: 400; }
-  .watch { display: flex; flex-wrap: wrap; gap: 0.6rem; }
-  .prov { border: 1px solid var(--line-2); border-radius: 10px; padding: 0.55rem 0.95rem; font-size: var(--t-sm); font-weight: 500; color: var(--ink); transition: border-color .15s, background .15s, color .15s; }
+  .alt { color: var(--muted); margin-top: 0.35rem; font-size: var(--t-md); }
+  .metaline { display: flex; align-items: center; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.9rem; font-size: var(--t-sm); color: var(--muted); }
+  .score { font-family: var(--font-mono); font-weight: 700; color: #fff; background: var(--muted); padding: 0.1rem 0.45rem; border-radius: 6px; }
+  .score.hi { background: var(--live); }
+  .m + .m::before, .score + .m::before { content: '·'; color: var(--line-2); margin-right: 0.55rem; }
+  .genres { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.85rem; }
+  .chip { font-size: var(--t-xs); color: var(--muted); background: var(--bg-soft); border: 1px solid var(--line); padding: 0.18rem 0.6rem; border-radius: 999px; }
+
+  .cols { display: grid; grid-template-columns: 1fr 16rem; gap: 2.5rem; margin-top: 2.75rem; }
+  .card.next { background: var(--bg-soft); border: 1px solid var(--line); border-radius: 14px; padding: 1.1rem 1.25rem; margin-bottom: 1.75rem; }
+  .next-line { display: flex; align-items: baseline; gap: 0.6rem; margin-top: 0.5rem; font-size: var(--t-lg); }
+  .next-line .ep { color: var(--ink); font-weight: 700; }
+  .next-line .in { color: var(--faint); font-size: var(--t-md); }
+  .next-line :global(.cd-num) { color: var(--accent); font-weight: 700; }
+  .synopsis .desc { margin-top: 0.6rem; color: var(--muted); line-height: 1.7; }
+  .right .eyebrow { margin-bottom: 0.75rem; }
+  .watch { display: flex; flex-direction: column; gap: 0.5rem; }
+  .prov { border: 1px solid var(--line-2); border-radius: 10px; padding: 0.6rem 0.9rem; font-size: var(--t-sm); font-weight: 500; color: var(--ink); transition: border-color .15s, background .15s, color .15s; }
   .prov:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
-  @media (max-width: 560px) {
+  .nostream { color: var(--faint); font-size: var(--t-sm); }
+
+  @media (max-width: 700px) {
+    .cols { grid-template-columns: 1fr; gap: 1.75rem; }
+    .hero { gap: 1.25rem; }
+    .poster { width: 6.5rem; }
     .h1 { font-size: var(--t-xl); }
-    .cover { width: 4.5rem; height: 6rem; font-size: 1.75rem; }
   }
 </style>

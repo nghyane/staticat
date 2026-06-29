@@ -1,0 +1,13 @@
+name = "watchdex-ingest"
+main = "src/index.ts"
+compatibility_date = "2026-06-19"
+
+# Autopilot: every 6 hours fetch AniList -> R2. Light job, fits Worker limits.
+[triggers]
+crons = ["0 */6 * * *"]
+
+# Frontend reads this bucket (via custom domain); worker writes v1/airing.json.
+# Create once:  wrangler r2 bucket create watchdex-data
+[[r2_buckets]]
+binding = "DATA"
+bucket_name = "watchdex-data"

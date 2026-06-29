@@ -47,17 +47,16 @@ const tabs = [
     </footer>
 
     <script>
-      const els = Array.from(document.querySelectorAll<HTMLElement>('[data-offset]'));
-      const now = Date.now();
-      const targets = els.map((el) => now + Number(el.dataset.offset) * 60_000);
+      // Live countdowns from absolute airing timestamps (epoch seconds).
+      const els = Array.from(document.querySelectorAll<HTMLElement>('[data-airat]'));
       const pad = (n: number) => String(n).padStart(2, '0');
       function tick() {
-        const t = Date.now();
-        els.forEach((el, i) => {
-          let s = Math.floor((targets[i]! - t) / 1000);
+        const now = Date.now() / 1000;
+        els.forEach((el) => {
+          let s = Math.floor(Number(el.dataset.airat) - now);
           if (s <= 0) { el.textContent = 'now'; el.classList.add('on'); return; }
-          const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-          el.textContent = h > 0 ? `${h}h ${pad(m)}m` : `${pad(m)}:${pad(sec)}`;
+          const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+          el.textContent = d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${pad(m)}m` : `${pad(m)}:${pad(sec)}`;
           el.classList.toggle('soon', s < 3600);
         });
       }

@@ -1,11 +1,11 @@
 ---
-interface Props { offsetMin: number }
-const { offsetMin } = Astro.props;
+interface Props { airAt: number; class?: string }
+const { airAt, class: cls = '' } = Astro.props;
 ---
-<span class="cd-num mono" data-offset={offsetMin} aria-label="time until air">--:--</span>
+<span class:list={['cd-num mono', cls]} data-airat={airAt} aria-label="time until next episode">--:--</span>
 
 <style>
-  .cd-num { color: var(--muted); }
+  .cd-num { color: var(--muted); font-variant-numeric: tabular-nums; }
   .cd-num.soon { color: var(--ink); font-weight: 700; }
   .cd-num.on { color: var(--live); font-weight: 700; }
 </style>
