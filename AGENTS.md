@@ -29,6 +29,7 @@ GitHub Actions cron ──ghi──► R2 (data + token) ──► Cloudflare CD
 | Schema chính xác 1 file/entity + path + TTL | `spec/contract.yaml` |
 | Dùng trong code (types/path/token) | `contract/contract.ts` |
 | Cách crawl→ghi (thứ tự an toàn, idempotent, cron) | `docs/ingestion.md` |
+| Lớp dynamic (user-store + comment, PocketBase) | `spec/dynamic.yaml` |
 | Cấu hình cache CDN | `spec/cache-rules.yaml` |
 | Quickstart cho người | `README.md` |
 

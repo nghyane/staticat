@@ -26,6 +26,7 @@ GitHub Actions cron  --ghi--> R2 (data + token) --> Cloudflare CDN --> Astro cli
 4. [contract/contract.ts](./contract/contract.ts) - mirror TS để code dùng.
 5. [docs/ingestion.md](./docs/ingestion.md) - write path (thứ tự an toàn, cron).
 6. [spec/cache-rules.yaml](./spec/cache-rules.yaml) - chính sách cache.
+7. [spec/dynamic.yaml](./spec/dynamic.yaml) - lớp dynamic tuỳ chọn (user-store + comment, PocketBase) - TÁCH read path.
 
 ## Layout
 ```

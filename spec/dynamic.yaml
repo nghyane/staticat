@@ -1,0 +1,87 @@
+# staticat dynamic layer — PocketBase (machine-readable)
+# Lớp dynamic NHỎ, TÁCH HẲN read path. Reads (catalog/chương) vẫn 100% static R2+CDN.
+# PocketBase = 1 binary (SQLite + Auth + Realtime + rules + admin) trên 1 VPS ~$5.
+version: v1
+
+invariant:
+  - "Dynamic box ⟂ read path: catalog/chương KHÔNG bao giờ hỏi PocketBase"
+  - "PB sập -> đọc/duyệt/bookmark-LOCAL vẫn chạy; chỉ tạm mất sync/comment (degrade)"
+  - "Client local-first (IndexedDB); PB chỉ để sync đa thiết bị + comment shared"
+
+topology:
+  read_domain:  "cdn.example  -> R2 + Cloudflare (static, no server)"
+  api_domain:   "api.example  -> PocketBase sau Cloudflare (proxy on)"
+  why_behind_cf: "cache GET comment-list (TTL ngắn) -> offload VPS; che IP gốc; CORS"
+
+# ── Collections ──────────────────────────────────────────────────────────────
+collections:
+
+  users:                            # auth collection (built-in)
+    type: auth
+    extra_fields: { name: text, avatar: file|url }
+    oauth: [google, discord, github, email]
+
+  user_record:                      # sync bookmark/history/progress/settings (per-user)
+    fields:
+      uid:       "relation(users)"
+      type:      "select: bookmark | progress | history | setting"
+      rkey:      "text"             # titleId | partId | settingKey
+      data:      "json"
+      updatedAt: "number(ms)"       # client-supplied, cho LWW
+      deleted:   "bool"             # tombstone (xoá đa thiết bị)
+    index: "UNIQUE (uid, type, rkey)"
+    rules:                          # PocketBase API rules (filter expr)
+      list:   "uid = @request.auth.id"
+      view:   "uid = @request.auth.id"
+      create: '@request.auth.id != "" && uid = @request.auth.id'
+      update: "uid = @request.auth.id"
+      delete: "uid = @request.auth.id"   # ưu tiên tombstone hơn xoá cứng
+    lww_hook: "pb_hooks onRecordBeforeUpdate: từ chối nếu incoming.updatedAt <= stored.updatedAt"
+
+  comments:                         # shared/public — read ai cũng thấy
+    fields:
+      target:  "text (titleId | partId)"
+      uid:     "relation(users)"
+      body:    "text (max 2000)"
+      parent:  "relation(comments) | null"   # reply 1 cấp
+      score:   "number (default 0)"
+      deleted: "bool"
+    rules:
+      list:   "deleted = false"
+      view:   "deleted = false"
+      create: '@request.auth.id != "" && uid = @request.auth.id'
+      update: "uid = @request.auth.id"       # sửa của mình; mod riêng
+      delete: "uid = @request.auth.id"       # hoặc tombstone qua update
+    author: "expand(uid) lấy name/avatar — khỏi denorm"
+    abuse_hook: "pb_hooks onRecordBeforeCreate: rate-limit (đếm gần đây/uid) + word-filter + verify Turnstile token"
+
+  comment_votes:                    # tuỳ chọn
+    fields: { uid: "relation(users)", comment: "relation(comments)", value: "number(-1|1)" }
+    index:  "UNIQUE (uid, comment)"
+    rules:  { create: '@request.auth.id != ""', update: "uid = @request.auth.id" }
+
+  reports:                          # moderation
+    fields: { uid: "relation(users)", target: text, reason: text }
+    rules:  { create: '@request.auth.id != ""', list: "@request.auth.id != '' && @collection.users.id ?= moderators" }
+
+# ── Sync model (per-record LWW + delta + tombstone) ─────────────────────────
+sync:
+  client: "local-first IndexedDB; ghi LOCAL tức thì + queue đẩy PB (debounce)"
+  push:   "upsert user_record qua SDK (POST mới / PATCH nếu incoming.updatedAt lớn hơn)"
+  pull:   "list user_record filter 'updated > {lastSyncAt}' (chỉ của mình) -> merge LWW vào IndexedDB"
+  delete: "tombstone (deleted=1, giữ updatedAt) -> propagate xoá"
+  anon_merge: "đăng nhập lần đầu -> đẩy dữ liệu anon (IndexedDB) lên account"
+
+# ── Comments read strategy ──────────────────────────────────────────────────
+comments_read:
+  default: "client-direct list theo target + Realtime subscribe (live)"
+  offload: "đặt PocketBase sau Cloudflare; cache GET list TTL ngắn -> VPS nhẹ tải"
+  scale_option: "title viral: hook regen static /v1/comments/{target}/0.json lên R2 (read 0-cost)"
+
+# ── Deploy ───────────────────────────────────────────────────────────────────
+deploy:
+  host:   "VPS ~$5 (hoặc Fly/Railway); 1 binary pocketbase serve"
+  data:   "pb_data/ (1 file SQLite) — own toàn bộ"
+  backup: "litestream -> R2 (continuous) hoặc cp định kỳ"
+  front:  "Cloudflare proxy (cache comment GET, CORS, che origin)"
+  cost:   "~$5/tháng; read path vẫn $0 static"
