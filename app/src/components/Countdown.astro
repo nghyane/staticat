@@ -2,10 +2,11 @@
 interface Props { airAt: number; class?: string }
 const { airAt, class: cls = '' } = Astro.props;
 ---
-<span class:list={['cd-num mono', cls]} data-airat={airAt} aria-label="time until next episode">--:--</span>
+<span class:list={['cd-num mono', cls]} data-airat={airAt} aria-label="time until next episode">&nbsp;</span>
 
 <style>
-  .cd-num { color: var(--muted); font-variant-numeric: tabular-nums; }
+  /* reserve width so the live update never shifts layout (zero CLS) */
+  .cd-num { color: var(--muted); font-variant-numeric: tabular-nums; display: inline-block; min-width: 5.5ch; text-align: right; }
   .cd-num.soon { color: var(--ink); font-weight: 700; }
   .cd-num.on { color: var(--live); font-weight: 700; }
 </style>

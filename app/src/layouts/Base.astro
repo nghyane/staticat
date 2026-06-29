@@ -1,11 +1,12 @@
 ---
+import { ClientRouter } from 'astro:transitions';
 import '@fontsource-variable/space-grotesk';
 import '@fontsource-variable/hanken-grotesk';
 import '@fontsource/space-mono';
 import '../styles/tokens.css';
 
-interface Props { title?: string; desc?: string }
-const { title = 'Watchdex — anime airing schedule & where to watch', desc = 'When the next episode airs and where to watch it. Updated every day.' } = Astro.props;
+interface Props { title?: string; desc?: string; bleed?: boolean }
+const { title = 'Watchdex — anime airing schedule & where to watch', desc = 'When the next episode airs and where to watch it. Updated every day.', bleed = false } = Astro.props;
 const tabs = [
   { label: 'Anime', href: '/', active: true },
   { label: 'Movies', href: '/movie', active: false },
@@ -20,9 +21,10 @@ const tabs = [
     <title>{title}</title>
     <meta name="description" content={desc} />
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='4' fill='%236D5BFF'/></svg>" />
+    <ClientRouter />
   </head>
   <body>
-    <header class="hdr">
+    <header class="hdr" transition:persist>
       <div class="wrap hdr-in">
         <a class="brand" href="/">
           <span class="mark" aria-hidden="true"></span>watchdex
@@ -40,28 +42,34 @@ const tabs = [
       </div>
     </header>
 
-    <main><slot /></main>
+    <main class:list={[{ bleed }]}><slot /></main>
 
     <footer class="ftr">
       <div class="wrap">Schedule data from AniList &middot; Times shown in your local timezone</div>
     </footer>
 
     <script>
-      // Live countdowns from absolute airing timestamps (epoch seconds).
-      const els = Array.from(document.querySelectorAll<HTMLElement>('[data-airat]'));
+      // Live countdowns from absolute airing timestamps. Re-bound on every
+      // view-transition navigation (astro:page-load), one shared interval.
       const pad = (n: number) => String(n).padStart(2, '0');
-      function tick() {
-        const now = Date.now() / 1000;
-        els.forEach((el) => {
-          let s = Math.floor(Number(el.dataset.airat) - now);
-          if (s <= 0) { el.textContent = 'now'; el.classList.add('on'); return; }
-          const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-          el.textContent = d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${pad(m)}m` : `${pad(m)}:${pad(sec)}`;
-          el.classList.toggle('soon', s < 3600);
-        });
+      let timer: number | undefined;
+      function start() {
+        const els = Array.from(document.querySelectorAll<HTMLElement>('[data-airat]'));
+        const tick = () => {
+          const now = Date.now() / 1000;
+          for (const el of els) {
+            let s = Math.floor(Number(el.dataset.airat) - now);
+            if (s <= 0) { el.textContent = 'now'; el.classList.add('on'); continue; }
+            const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+            el.textContent = d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${pad(m)}m` : `${pad(m)}:${pad(sec)}`;
+            el.classList.toggle('soon', s < 3600);
+          }
+        };
+        tick();
+        clearInterval(timer);
+        timer = setInterval(tick, 1000) as unknown as number;
       }
-      tick();
-      setInterval(tick, 1000);
+      document.addEventListener('astro:page-load', start);
     </script>
 
     <style>
@@ -80,6 +88,7 @@ const tabs = [
       .search input::placeholder { color: var(--faint); }
       .search kbd { font-family: var(--font-mono); font-size: 0.7rem; color: var(--faint); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 0.05rem 0.4rem; }
       main { padding-block: 3rem 5rem; }
+      main.bleed { padding-block-start: 0.6rem; }
       .ftr { border-top: 1px solid var(--line); color: var(--faint); font-size: var(--t-xs); padding-block: 2rem; }
       @media (max-width: 640px) { .search { width: 2.5rem; padding: 0; justify-content: center; } .search input, .search kbd { display: none; } .hdr-in { gap: 1rem; } }
     </style>
