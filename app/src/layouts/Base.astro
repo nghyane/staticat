@@ -1,0 +1,88 @@
+---
+import '@fontsource-variable/space-grotesk';
+import '@fontsource-variable/hanken-grotesk';
+import '@fontsource/space-mono';
+import '../styles/tokens.css';
+
+interface Props { title?: string; desc?: string }
+const { title = 'Watchdex — anime airing schedule & where to watch', desc = 'When the next episode airs and where to watch it. Updated every day.' } = Astro.props;
+const tabs = [
+  { label: 'Anime', href: '/', active: true },
+  { label: 'Movies', href: '/movie', active: false },
+  { label: 'Games', href: '/game', active: false },
+];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={desc} />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='4' fill='%236D5BFF'/></svg>" />
+  </head>
+  <body>
+    <header class="hdr">
+      <div class="wrap hdr-in">
+        <a class="brand" href="/">
+          <span class="mark" aria-hidden="true"></span>watchdex
+        </a>
+        <nav class="tabs" aria-label="Sections">
+          {tabs.map((t) => (
+            <a href={t.href} class:list={['tab', { on: t.active }]} aria-current={t.active ? 'page' : undefined}>{t.label}</a>
+          ))}
+        </nav>
+        <form class="search" role="search">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <input type="search" placeholder="Search anime, movies, games" aria-label="Search" />
+          <kbd aria-hidden="true">/</kbd>
+        </form>
+      </div>
+    </header>
+
+    <main><slot /></main>
+
+    <footer class="ftr">
+      <div class="wrap">Schedule data from AniList &middot; Times shown in your local timezone</div>
+    </footer>
+
+    <script>
+      const els = Array.from(document.querySelectorAll<HTMLElement>('[data-offset]'));
+      const now = Date.now();
+      const targets = els.map((el) => now + Number(el.dataset.offset) * 60_000);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      function tick() {
+        const t = Date.now();
+        els.forEach((el, i) => {
+          let s = Math.floor((targets[i]! - t) / 1000);
+          if (s <= 0) { el.textContent = 'now'; el.classList.add('on'); return; }
+          const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+          el.textContent = h > 0 ? `${h}h ${pad(m)}m` : `${pad(m)}:${pad(sec)}`;
+          el.classList.toggle('soon', s < 3600);
+        });
+      }
+      tick();
+      setInterval(tick, 1000);
+    </script>
+
+    <style>
+      .hdr { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(12px) saturate(1.3); border-bottom: 1px solid var(--line); }
+      .hdr-in { display: flex; align-items: stretch; gap: 1.5rem; height: 4.25rem; }
+      .brand { display: inline-flex; align-items: center; gap: 0.55rem; font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--ink); }
+      .mark { width: 0.65rem; height: 0.65rem; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+      .tabs { display: flex; align-items: stretch; gap: 0.15rem; }
+      .tab { display: inline-flex; align-items: center; position: relative; font-size: var(--t-sm); font-weight: 500; color: var(--muted); padding: 0 0.65rem; transition: color .15s; }
+      .tab:hover { color: var(--ink); }
+      .tab.on { color: var(--ink); font-weight: 600; }
+      .tab.on::after { content: ''; position: absolute; left: 0.65rem; right: 0.65rem; bottom: -1px; height: 2px; background: var(--accent); border-radius: 2px 2px 0 0; }
+      .search { display: flex; align-items: center; gap: 0.55rem; margin-left: auto; align-self: center; width: min(18rem, 34vw); background: var(--bg-soft); border: 1px solid var(--line); color: var(--faint); height: 2.5rem; padding: 0 0.5rem 0 0.85rem; border-radius: 11px; transition: border-color .15s, background .15s, box-shadow .15s; }
+      .search:focus-within { border-color: var(--accent); background: var(--bg); box-shadow: 0 0 0 3px var(--accent-soft); }
+      .search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font: inherit; font-size: var(--t-sm); color: var(--ink); }
+      .search input::placeholder { color: var(--faint); }
+      .search kbd { font-family: var(--font-mono); font-size: 0.7rem; color: var(--faint); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 0.05rem 0.4rem; }
+      main { padding-block: 3rem 5rem; }
+      .ftr { border-top: 1px solid var(--line); color: var(--faint); font-size: var(--t-xs); padding-block: 2rem; }
+      @media (max-width: 640px) { .search { width: 2.5rem; padding: 0; justify-content: center; } .search input, .search kbd { display: none; } .hdr-in { gap: 1rem; } }
+    </style>
+  </body>
+</html>

@@ -1,0 +1,27 @@
+---
+import Base from '../layouts/Base.astro';
+import ScheduleList from '../components/ScheduleList.astro';
+import { schedule } from '../data/mock';
+const airingSoon = schedule[0]!.entries.filter((e) => e.offsetMin < 90).length;
+---
+<Base>
+  <div class="wrap">
+    <section class="lede">
+      <p class="eyebrow">On air now &middot; {schedule[0]!.season}</p>
+      <h1 class="h1">When the next episode airs,<br />and where to watch it.</h1>
+      <p class="sub">{airingSoon} {airingSoon === 1 ? 'episode' : 'episodes'} dropping in the next 90 minutes. Live countdowns, in your local timezone.</p>
+    </section>
+
+    <ScheduleList days={schedule} />
+  </div>
+</Base>
+
+<style>
+  .lede { padding-block: 1rem 3rem; }
+  .h1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; line-height: 1.08; letter-spacing: -0.03em; color: var(--ink); }
+  .sub { color: var(--muted); margin-top: 1.1rem; max-width: 42ch; font-size: var(--t-md); }
+  @media (max-width: 560px) {
+    .h1 { font-size: var(--t-xl); }
+    .h1 br { display: none; }
+  }
+</style>

@@ -1,0 +1,75 @@
+---
+import Base from '../../layouts/Base.astro';
+import Countdown from '../../components/Countdown.astro';
+import { schedule } from '../../data/mock';
+
+export function getStaticPaths() {
+  return schedule.flatMap((d) => d.entries).map((entry) => ({
+    params: { slug: entry.slug },
+    props: { entry },
+  }));
+}
+const { entry } = Astro.props;
+const hue = [...entry.slug].reduce((a, c) => a + c.charCodeAt(0), 0) % 360;
+const cover = `linear-gradient(140deg, hsl(${hue} 62% 70%), hsl(${(hue + 38) % 360} 64% 56%))`;
+const initial = entry.title.replace(/[^A-Za-z0-9]/g, '').slice(0, 1).toUpperCase();
+const jsonLd = {
+  '@context': 'https://schema.org', '@type': 'TVSeries', name: entry.title,
+  numberOfEpisodes: entry.ep, episode: { '@type': 'TVEpisode', episodeNumber: entry.ep },
+};
+---
+<Base title={`${entry.title} — where to watch & next episode | Watchdex`} desc={`When ${entry.title} episode ${entry.ep} airs and where to watch it.`}>
+  <div class="wrap entity">
+    <a class="back" href="/">&larr; Back to schedule</a>
+
+    <header class="hero">
+      <span class="cover" style={`background:${cover}`} aria-hidden="true">{initial}</span>
+      <div class="head">
+        <h1 class="h1">{entry.title}</h1>
+        <p class="meta">TV series &middot; Airing &middot; <span class="mono">{entry.ep - 1} episodes</span></p>
+      </div>
+    </header>
+
+    <dl class="facts">
+      <div class="fact">
+        <dt class="eyebrow">Next episode</dt>
+        <dd class="next">
+          <span class="mono ep">EP {entry.ep}</span>
+          <span class="next-cd"><span class="in">in</span> <Countdown offsetMin={entry.offsetMin} /></span>
+        </dd>
+      </div>
+      <div class="fact">
+        <dt class="eyebrow">Where to watch</dt>
+        <dd class="watch">
+          {entry.providers.map((p) => <a class="prov" href="#" rel="nofollow">{p} &rarr;</a>)}
+        </dd>
+      </div>
+    </dl>
+  </div>
+
+  <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+</Base>
+
+<style>
+  .entity { max-width: 42rem; }
+  .back { display: inline-block; color: var(--muted); font-size: var(--t-sm); margin-bottom: 2rem; }
+  .back:hover { color: var(--accent); }
+  .hero { display: flex; align-items: center; gap: 1.5rem; }
+  .cover { width: 5.5rem; height: 7.5rem; border-radius: 14px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 2.25rem; color: rgba(255,255,255,.92); box-shadow: inset 0 0 0 1px rgba(0,0,0,.06), 0 8px 28px -12px rgba(0,0,0,.2); }
+  .head { min-width: 0; }
+  .h1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
+  .meta { color: var(--muted); margin-top: 0.6rem; }
+  .facts { margin-top: 3rem; display: grid; gap: 2rem; }
+  .fact { display: grid; gap: 0.7rem; }
+  .next { display: flex; align-items: baseline; gap: 0.85rem; font-size: var(--t-xl); }
+  .next .ep { color: var(--ink); font-weight: 700; }
+  .next-cd { font-size: var(--t-lg); color: var(--accent); font-weight: 700; }
+  .next-cd .in { color: var(--faint); font-size: var(--t-md); font-weight: 400; }
+  .watch { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+  .prov { border: 1px solid var(--line-2); border-radius: 10px; padding: 0.55rem 0.95rem; font-size: var(--t-sm); font-weight: 500; color: var(--ink); transition: border-color .15s, background .15s, color .15s; }
+  .prov:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  @media (max-width: 560px) {
+    .h1 { font-size: var(--t-xl); }
+    .cover { width: 4.5rem; height: 6rem; font-size: 1.75rem; }
+  }
+</style>

@@ -1,0 +1,11 @@
+---
+interface Props { offsetMin: number }
+const { offsetMin } = Astro.props;
+---
+<span class="cd-num mono" data-offset={offsetMin} aria-label="time until air">--:--</span>
+
+<style>
+  .cd-num { color: var(--muted); }
+  .cd-num.soon { color: var(--ink); font-weight: 700; }
+  .cd-num.on { color: var(--live); font-weight: 700; }
+</style>
