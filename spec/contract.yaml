@@ -1,0 +1,124 @@
+# staticat data contract — NGUỒN CHÂN LÝ (machine-readable)
+# contract/contract.ts là mirror của file này. Lệch → file này thắng.
+version: v1
+base: /v1
+
+invariants:
+  - "Write ⟂ Read: gặp nhau chỉ qua file tĩnh R2"
+  - "Data ⟂ Blob: R2 giữ data + token; byte nặng ở host khác"
+  - "Mutable ⟂ Immutable: chỉ pointer tươi (SWR); payload v{rev} immutable"
+
+# ── Token trỏ blob (ảnh/video) — đổi host không đụng data ────────────────────
+blob_tokens:
+  scheme: "<host>:<ref>"
+  hosts:
+    gd:  { name: Google Drive, ref: fileId,       proxy_required: true,  note: "quota/ban — chỉ MVP; cache cứng CF" }
+    r2:  { name: R2 bucket,    ref: object key,    proxy_required: false, note: "egress $0, ổn nhất" }
+    b2:  { name: Backblaze B2, ref: object key,    proxy_required: false, note: "rẻ, custom domain" }
+    src: { name: URL tuyệt đối, ref: full url,     proxy_required: maybe, note: "hotlink nguồn ngoài" }
+
+# ── Đơn vị dữ liệu ───────────────────────────────────────────────────────────
+model:
+  work:  "tác phẩm (title) — comic hoặc video"
+  part:  "đơn vị nội dung — chương (truyện) | tập (phim)"
+  rule:  "work có 1..N parts; part trỏ 1 blob qua token"
+
+# ── Entities ─────────────────────────────────────────────────────────────────
+entities:
+
+  TitleHead:
+    path: /v1/title/{id}/head.json
+    mutability: pointer            # SWR — file mutable duy nhất của title
+    fields:
+      id:       string
+      rev:      int                # tăng mỗi lần có part mới
+      latestAt: epoch_s
+      chunks:   string[]           # vd ["c0","c1.v3"] — chunk mới nhất versioned
+    example: { id: abc, rev: 137, latestAt: 1782750000, chunks: [c0, "c1.v3"] }
+
+  TitleMeta:
+    path: /v1/title/{id}/meta.v{rev}.json
+    mutability: immutable
+    fields:
+      id:     string
+      kind:   "comic | video"
+      title:  string
+      alt:    string[]
+      cover:  blob_token
+      author: "string | null"
+      status: "ongoing | completed | hiatus"
+      genres: string[]
+      lang:   string
+      desc:   string
+    example: { id: abc, kind: comic, title: "...", alt: [], cover: "gd:F0", status: ongoing, genres: [action], lang: vi, desc: "..." }
+
+  PartsChunk:
+    path: /v1/title/{id}/parts/{chunk}.v{n}.json   # chunk mới nhất versioned; cũ immutable
+    mutability: immutable
+    shape: "PartRef[]  (newest-first)"
+    PartRef:
+      partId: string
+      no:     string                # "120", "1.5"
+      label:  "string | null"
+      date:   epoch_s
+
+  PartIndex:                        # INDEX payload — discriminated theo kind
+    path: /v1/part/{partId}.json
+    mutability: immutable
+    discriminator: kind
+    variants:
+      comic-pack:                   # truyện: 1 blob nối các page; Range/page
+        fields: { partId: string, titleId: string, kind: comic-pack, blob: blob_token, pages: "PagePos[]" }
+        PagePos: { off: int, len: int, type: "webp|avif|jpeg", w: int, h: int }
+        example: { partId: "abc:120", titleId: abc, kind: comic-pack, blob: "gd:F120", pages: [ { off: 0, len: 142331, type: webp, w: 800, h: 1200 } ] }
+      video-mp4:                    # phim: MP4 progressive, <video> seek bằng Range
+        fields: { partId: string, titleId: string, kind: video-mp4, blob: blob_token, dur: int_s, w: int, h: int }
+        example: { partId: "mov:1", titleId: mov, kind: video-mp4, blob: "r2:mov/1.mp4", dur: 5400, w: 1920, h: 1080 }
+      video-hls:                    # phim ABR: playlist + segment immutable
+        fields: { partId: string, titleId: string, kind: video-hls, playlist: blob_token, dur: int_s, variants: "{h:int,bw:int}[]" }
+        example: { partId: "mov:1", titleId: mov, kind: video-hls, playlist: "r2:mov/1/master.m3u8", dur: 5400, variants: [ { h: 1080, bw: 5000000 } ] }
+
+  FeedEntry:                        # denormalized → list view 1 fetch
+    path: /v1/feed/latest/{page}.json     # page 0 = pointer (SWR); còn lại immutable
+    mutability: "page0=pointer, else immutable"
+    shape: "FeedEntry[]"
+    fields: { titleId: string, kind: "comic|video", title: string, cover: blob_token, partId: string, no: string, at: epoch_s }
+
+  Popular:
+    path: /v1/feed/popular/{period}.json  # period: day|week|all
+    mutability: pointer
+    shape: "FeedEntry[]"
+
+  Genre:
+    path: /v1/genre/{slug}/{page}.json
+    mutability: immutable
+    shape: "FeedEntry[]"
+
+  SearchHead:
+    path: /v1/search/head.json
+    mutability: pointer
+    fields: { ver: int }
+
+  SearchIndex:
+    path: /v1/search/index.v{N}.json
+    mutability: immutable
+    shape: "SearchEntry[]"
+    SearchEntry: { id: string, kind: "comic|video", title: string, alt: string[], cover: blob_token }
+
+# ── Read flows ───────────────────────────────────────────────────────────────
+read_flows:
+  home:   "GET feed/latest/0 (+ feed/popular/day) → render card (đã đủ field)"
+  title:  "GET title/{id}/head → meta.v{rev} + parts/{chunk mới nhất}"
+  read:   "GET part/{partId} → mỗi page: Range vào blob → Blob → <img>"
+  watch:  "GET part/{partId} → <video src=resolve(blob)> (Range seek) | HLS player"
+  search: "GET search/head → index.v{ver} (client-side filter)"
+
+# ── Write order (xem docs/ingestion.md) ──────────────────────────────────────
+write_order:
+  - "1. upload blob part (immutable)"
+  - "2. ghi part/{partId}.json (immutable)"
+  - "3. ghi title/{id}/parts/{chunk}.v{n+1} (immutable)"
+  - "4. bump title/{id}/head.json — POINTER, GHI CUỐI"
+  - "5. prepend feed/latest/0.json"
+  - "6. mark search dirty → rebuild index.v{N+1} + bump search/head"
+  rule: "immutable TRƯỚC, pointer SAU; idempotent (hash-based)"
