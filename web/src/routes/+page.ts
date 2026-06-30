@@ -1,7 +1,8 @@
-import { loadFeed, loadPopular } from '$lib/catalog';
+import { loadFeed, loadPopular, loadSearch } from '$lib/catalog';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
-	const [feed, popular] = await Promise.all([loadFeed(0, fetch), loadPopular('day', fetch)]);
-	return { feed: feed.filter((e) => e.kind === 'anime'), popular: popular.filter((e) => e.kind === 'anime') };
+	const [feed, popular, index] = await Promise.all([loadFeed(0, fetch), loadPopular('day', fetch), loadSearch(fetch).catch(() => [])]);
+	const anime = (e: { kind: string }) => e.kind === 'anime';
+	return { feed: feed.filter(anime), popular: popular.filter(anime), index: index.filter(anime) };
 };
