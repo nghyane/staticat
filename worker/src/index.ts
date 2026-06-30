@@ -43,13 +43,16 @@ async function ingest(env: Env): Promise<{ titles: number; changed: number; enri
 	const idx = JSON.parse((await get('v1/_heads.json')) || '{}'); // { id: { rev, hash, enriched } }
 
 	// 1. catalogs (anime+manga via Jikan, movies via Cinemeta, games via Steam)
-	//    — all keyless. Cards come from these list calls; full detail is enriched.
-	const core = [
-		...(await fetchList({ airingPages: air, popularPages: pop, throttle: 380 })),
-		...(await fetchMangaList({ pages: manga, throttle: 380 })),
-		...(await fetchMovies({ pages: movies, throttle: 300 }).catch(() => [])),
-		...(await fetchGames({ throttle: 400 }).catch(() => []))
+	//    — all keyless. Cards from list calls; full detail enriched per run.
+	const lists = [
+		await fetchList({ airingPages: air, popularPages: pop, throttle: 380 }),
+		await fetchMangaList({ pages: manga, throttle: 380 }),
+		await fetchMovies({ pages: movies, throttle: 300 }).catch(() => []),
+		await fetchGames({ throttle: 400 }).catch(() => [])
 	];
+	// interleave so the enrich budget spreads across kinds (else games starve)
+	const core: any[] = [];
+	for (let i = 0, max = Math.max(...lists.map((l) => l.length)); i < max; i++) for (const l of lists) if (l[i]) core.push(l[i]);
 
 	// 1b. apply the AniList static supplement (banner/color — Jikan has no banner)
 	const supp = supplements as Record<string, { banner?: string; color?: string }>;
