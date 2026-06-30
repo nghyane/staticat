@@ -1,63 +1,56 @@
-# Deploy — Watchdex ($0, smooth, easy data updates)
+# Deploy — Watchdex (live, keyless, auto-update)
 
-Three Cloudflare pieces, all on the free tier:
+Three Cloudflare pieces, **no API keys anywhere**, all free tier:
 
 ```
-Worker (cron)  ── assemble() ──►  R2 bucket  ──► R2 custom domain (CDN)
-   write side                       /v1/**            │  read, zero-function
-                                                       ▼
-SvelteKit SPA (Pages) ── fetch PUBLIC_DATA_BASE/v1/** ─┘
+Worker (cron 2h) ── Jikan (MAL, no key, not CF-blocked) ──► R2 (binding, no S3 key)
+   write side          fast list + bounded enrich              /v1/**
+                                                                  │ r2.dev + CORS
+SvelteKit SPA (Pages, shell-only) ── fetch PUBLIC_DATA_BASE/v1/** ┘  read, zero-function
 ```
 
-- **App runs smoothly**: reads are static JSON off R2+CDN (no function, SWR cache).
-- **Zero cost**: Workers free (cron), R2 free (10GB/1M ops), Pages free.
-- **Data updates easily**: cron rewrites `/v1/**` in R2; the SPA fetches fresh
-  on the next pointer revalidation. No rebuild, no redeploy.
+- **Complete page**: schedule + countdown, characters/cast, related, recs,
+  where-to-watch (streaming) — all from Jikan.
+- **Keyless**: worker writes R2 via *binding* (no S3 key); Jikan needs no key
+  and isn't CF-blocked (unlike AniList). wrangler uses OAuth.
+- **Auto-update**: cron rewrites only changed files in R2; the SPA reads R2
+  directly — no rebuild, no redeploy.
 
-## 1. R2 bucket + public domain
+## 1. R2 bucket + public read + CORS
 
 ```sh
-cd worker
 npx wrangler r2 bucket create watchdex-data
-# Dashboard → R2 → watchdex-data → Settings → Custom Domain → data.watchdex.xyz
-```
-
-The SPA (watchdex.xyz) fetches data.watchdex.xyz → cross-origin, so set the
-bucket CORS to allow the site origin (one-time):
-
-```sh
-npx wrangler r2 bucket cors put watchdex-data --rules '[
-  { "AllowedOrigins": ["https://watchdex.xyz"], "AllowedMethods": ["GET","HEAD"], "MaxAgeSeconds": 86400 }
-]'
+npx wrangler r2 bucket dev-url enable watchdex-data        # → https://pub-XXXX.r2.dev
+printf '{"rules":[{"allowed":{"origins":["*"],"methods":["GET","HEAD"],"headers":["*"]},"maxAgeSeconds":86400}]}' > cors.json
+npx wrangler r2 bucket cors set watchdex-data --file cors.json --force
 ```
 
 ## 2. Ingest worker (cron)
 
 ```sh
-cd worker
-npx wrangler secret put INGEST_SECRET   # protects the manual /ingest route
-npx wrangler deploy                      # registers the cron (every 6h)
-# seed immediately instead of waiting for cron:
-curl -H "authorization: Bearer $INGEST_SECRET" https://watchdex-ingest.<acct>.workers.dev/ingest
+cd worker && npx wrangler deploy        # binding + cron 2h, no secrets
+curl https://watchdex-ingest.<acct>.workers.dev/ingest   # seed now (repeat a few
+                                                          # times to finish enrich)
 ```
 
-`PAGES` (wrangler.toml [vars]) controls snapshot size (50 titles/page). Bump for
-a fuller catalog → more related/recs resolve in R2.
+`AIRING_PAGES`/`POPULAR_PAGES`/`ENRICH_LIMIT` (wrangler.toml [vars]) tune
+breadth + per-run enrichment budget. Enrichment is progressive: each run keeps
+schedule fresh + enriches the next slice, so it fits Worker limits.
 
-## 3. SPA → Pages
+## 3. SPA → Pages (shell-only, reads R2)
 
 ```sh
-cd web
-PUBLIC_DATA_BASE=https://data.watchdex.xyz npm run build
-npx wrangler pages deploy build --project-name watchdex
-# or connect the repo in Pages with build env PUBLIC_DATA_BASE set
+cd web && rm -rf static/v1                     # no co-host; data lives in R2
+PUBLIC_DATA_BASE=https://pub-XXXX.r2.dev npm run build
+npx wrangler pages deploy build --project-name watchdex --branch main
 ```
 
-In dev `PUBLIC_DATA_BASE` is unset → the SPA reads same-origin `/v1` from
-`web/static` (run `node ingest/build-data.mjs` once to populate it).
+Dev: leave `PUBLIC_DATA_BASE` unset and run `node ingest/build-data.mjs` once →
+same-origin `/v1` from `web/static`.
 
-## Updating data
+## Swapping source
 
-Nothing to redeploy — the cron handles it. To change the schema/shape, edit
-`contract/discovery.ts` + `ingest/lib`, redeploy the worker; breaking changes go
-to a new `/v2` namespace (see docs/r2-discovery.md), never mutate `/v1` in place.
+Identity is MAL-canonical (`anime:{mal_id}`), so the crawl source is pluggable
+— only `ingest/lib/*.js` (the map → EntityMeta) changes. `jikan.js` (no key) is
+the default; `anilist.js` (better schedule, but CF-blocked → needs a non-CF
+relay, `ingest/relay.ts`) is the alternative. Contract/R2/FE never change.
