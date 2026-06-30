@@ -6,6 +6,7 @@
 
 	let { data }: { data: PageData } = $props();
 	const a = $derived(data.meta);
+	const d = $derived(a.details); // per-kind detail (narrowed in template)
 
 	const num = (n: number | null) => (n ? n.toLocaleString('en-US') : null);
 	const STATUS_LABEL: Record<string, string | null> = { airing: 'Airing', finished: 'Finished', upcoming: 'Upcoming', released: 'Released', cancelled: 'Cancelled', unknown: null };
@@ -36,11 +37,16 @@
 			];
 			metaItems = [d.format, d.chapters ? `${d.chapters} ch` : null, d.published, d.authors[0] ?? null];
 		} else if (d.kind === 'movie') {
-			detailRows = [['Runtime', d.runtime ? `${d.runtime} min` : null], ['Status', statusLabel], ['Director', d.director], ['Rating', a.rating ? `${a.rating}%` : null]];
-			metaItems = [d.runtime ? `${d.runtime} min` : null, a.year ? String(a.year) : null, d.director];
+			detailRows = [['Runtime', d.runtime ? `${d.runtime} min` : null], ['Released', d.released], ['Director', d.director], ['IMDb', a.rating ? `${(a.rating / 10).toFixed(1)}` : null]];
+			metaItems = [d.runtime ? `${d.runtime} min` : null, d.released ?? (a.year ? String(a.year) : null), d.director];
 		} else if (d.kind === 'game') {
-			detailRows = [['Platforms', d.platforms.join(', ') || null], ['Status', statusLabel], ['Developer', d.developer], ['Rating', a.rating ? `${a.rating}%` : null]];
-			metaItems = [d.platforms[0] ?? null, a.year ? String(a.year) : null, d.developer];
+			const PLAT: Record<string, string> = { windows: 'PC', mac: 'Mac', linux: 'Linux' };
+			detailRows = [
+				['Platforms', d.platforms.map((p) => PLAT[p] ?? p).join(', ') || null], ['Released', d.released],
+				['Developer', d.developer], ['Publisher', d.publisher], ['Modes', d.modes.join(', ') || null],
+				['Metacritic', a.rating ? String(a.rating) : null]
+			];
+			metaItems = [d.platforms.map((p) => PLAT[p] ?? p).join('/') || null, d.released, d.developer];
 		} else {
 			detailRows = [['Status', statusLabel], ['Rating', a.rating ? `${a.rating}%` : null]];
 			metaItems = [a.year ? String(a.year) : null];
@@ -51,24 +57,82 @@
 	const metaItems = $derived(rows.metaItems);
 
 	const SCHEMA_TYPE: Record<string, string> = { anime: 'TVSeries', tv: 'TVSeries', manga: 'Book', movie: 'Movie', game: 'VideoGame' };
-	const jsonLd = $derived({
-		'@context': 'https://schema.org', '@type': SCHEMA_TYPE[a.kind] ?? 'CreativeWork', name: a.title,
-		...(a.alt[0] ? { alternateName: a.alt[0] } : {}),
-		...(a.desc ? { description: a.desc.slice(0, 280) } : {}),
-		...(a.cover ? { image: blob(a.cover) } : {}),
-		...(a.rating ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: (a.rating / 10).toFixed(1), bestRating: 10, ratingCount: 1 } } : {}),
-		genre: a.genres
+	const jsonLd = $derived.by(() => {
+		const base: Record<string, unknown> = {
+			'@context': 'https://schema.org', '@type': SCHEMA_TYPE[a.kind] ?? 'CreativeWork', name: a.title,
+			...(a.alt[0] ? { alternateName: a.alt[0] } : {}),
+			...(a.desc ? { description: a.desc.slice(0, 280) } : {}),
+			...(a.cover ? { image: blob(a.cover) } : {}),
+			...(a.rating ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: (a.rating / 10).toFixed(1), bestRating: 10, ratingCount: 1 } } : {}),
+			genre: a.genres
+		};
+		if (d.kind === 'game') return { ...base, gamePlatform: d.platforms, ...(d.publisher ? { publisher: d.publisher } : {}), ...(d.released ? { datePublished: d.released } : {}) };
+		if (d.kind === 'movie') return { ...base, ...(d.director ? { director: d.director } : {}), ...(d.cast.length ? { actor: d.cast.slice(0, 5) } : {}), ...(d.released ? { datePublished: d.released } : {}) };
+		return base;
 	});
+
+	// Per-kind SEO title + description
+	const pageTitle = $derived.by(() => {
+		const t = a.title;
+		if (a.kind === 'game') return `${t} — reviews, platforms & where to buy | Watchdex`;
+		if (a.kind === 'movie') return `${t}${a.year ? ` (${a.year})` : ''} — where to watch, cast & rating | Watchdex`;
+		if (a.kind === 'manga') return `${t} — chapters, author & where to read | Watchdex`;
+		return `${t} — schedule, where to watch & cast | Watchdex`;
+	});
+	const verb = $derived(a.kind === 'game' ? 'play' : a.kind === 'manga' ? 'read' : 'watch');
+	const pageDesc = $derived(a.desc?.slice(0, 155) ?? `${a.title} — details, ratings and where to ${verb}, on Watchdex.`);
+
+	const KIND_PLURAL: Record<string, string> = { anime: 'anime', manga: 'manga', movie: 'movies', game: 'games', tv: 'series' };
+	const moreLabel = $derived(`More ${a.genres[0] ? a.genres[0] + ' ' : ''}${KIND_PLURAL[a.kind] ?? ''}`);
 	const alt = $derived([...a.alt.slice(0, 1), a.native].filter((x) => x && x !== a.title).join('  ·  '));
 	const watchLabel = $derived(a.kind === 'game' ? 'Where to play' : a.kind === 'manga' ? 'Where to read' : 'Where to watch');
 </script>
 
 <svelte:head>
-	<title>{a.title} — where to watch & next release | Watchdex</title>
-	<meta name="description" content={a.desc?.slice(0, 155) ?? `When ${a.title} releases next and where to watch it.`} />
+	<title>{pageTitle}</title>
+	<meta name="description" content={pageDesc} />
+	<meta property="og:title" content={a.title} />
+	<meta property="og:description" content={pageDesc} />
+	{#if a.cover}<meta property="og:image" content={blob(a.banner ?? a.cover)} />{/if}
 	{@html `<script type="application/ld+json">${JSON.stringify(jsonLd)}<\/script>`}
 </svelte:head>
 
+{#if a.kind === 'game'}
+	<!-- GAME: store-style layout (landscape hero, screenshots, buy) -->
+	<section class="ghero">
+		<img class="gbg" src={blob(a.banner ?? a.cover)} alt="" fetchpriority="high" />
+		<div class="gbar"><div class="wrap"><a class="back over" href="/game">&larr; Games</a></div></div>
+	</section>
+	<div class="wrap gwrap">
+		<main class="gmain">
+			<h1 class="gh1">{a.title}</h1>
+			<p class="gmeta">
+				{#if a.rating}<span class="mc" class:hi={a.rating >= 75} class:mid={a.rating >= 50 && a.rating < 75}>{a.rating}</span>{/if}
+				{#each metaItems as m}<span class="m">{m}</span>{/each}
+			</p>
+			<div class="chips">{#each a.genres as g}<a class="chip chip-accent" href={`/genre/${slugifyGenre(g)}`}>{g}</a>{/each}</div>
+			{#if a.desc}<section class="sec"><h2 class="sec-h">About</h2><p class="desc">{a.desc}</p></section>{/if}
+			{#if d.kind === 'game' && d.screenshots.length > 0}
+				<section class="sec"><h2 class="sec-h">Screenshots</h2><div class="shots">{#each d.screenshots as s}<img class="shot" src={blob(s)} alt="" loading="lazy" />{/each}</div></section>
+			{/if}
+			{#if data.sameGenre.length > 0}
+				<section class="sec"><h2 class="sec-h">{moreLabel}</h2><div class="mini-grid">{#each data.sameGenre as m (m.id)}<MiniCard {m} />{/each}</div></section>
+			{/if}
+		</main>
+		<aside class="gside">
+			{#if a.availability[0]}
+				<a class="buy" href={a.availability[0].url} rel="nofollow noopener" target="_blank">
+					<svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm0 3.2a2.1 2.1 0 1 1 0 4.2 2.1 2.1 0 0 1 0-4.2Z"/></svg>
+					Buy on Steam &rarr;
+				</a>
+			{/if}
+			<section class="panel">
+				<span class="eyebrow">Details</span>
+				<dl class="dl">{#each detailRows as [k, v]}<div class="dl-row"><dt>{k}</dt><dd>{v}</dd></div>{/each}</dl>
+			</section>
+		</aside>
+	</div>
+{:else}
 <section class="hero">
 	{#if a.banner}
 		<div class="banner">
@@ -105,7 +169,14 @@
 		{/if}
 
 		{#if a.desc}
-			<section class="sec"><h2 class="sec-h">Synopsis</h2><p class="desc">{a.desc}</p></section>
+			<section class="sec"><h2 class="sec-h">{d.kind === 'game' ? 'About' : 'Synopsis'}</h2><p class="desc">{a.desc}</p></section>
+		{/if}
+
+		{#if d.kind === 'movie' && d.cast.length > 0}
+			<section class="sec">
+				<h2 class="sec-h">Cast</h2>
+				<div class="castlist">{#each d.cast as c}<span class="chip">{c}</span>{/each}</div>
+			</section>
 		{/if}
 
 		{#if a.characters.length > 0}
@@ -129,6 +200,10 @@
 		{#if data.recommendations.length > 0}
 			<section class="sec"><h2 class="sec-h">You might also like</h2><div class="mini-grid">{#each data.recommendations as m (m.id)}<MiniCard {m} />{/each}</div></section>
 		{/if}
+
+		{#if data.sameGenre.length > 0}
+			<section class="sec"><h2 class="sec-h">{moreLabel}</h2><div class="mini-grid">{#each data.sameGenre as m (m.id)}<MiniCard {m} />{/each}</div></section>
+		{/if}
 	</main>
 
 	<aside class="side">
@@ -146,6 +221,7 @@
 		</section>
 	</aside>
 </div>
+{/if}
 
 <style>
 	.hero { padding-bottom: 2.5rem; }
@@ -193,12 +269,38 @@
 
 	.mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 1.1rem 0.85rem; }
 
+	/* game screenshots (landscape gallery) */
+	.shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+	.shot { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: var(--r-sm); background: var(--bg-soft); }
+	@media (max-width: 560px) { .shots { grid-template-columns: 1fr; } }
+
+	/* movie cast (text chips) */
+	.castlist { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+	/* GAME store-style layout */
+	.ghero { position: relative; height: 360px; max-height: 46vh; overflow: hidden; background: var(--bg-soft); }
+	.gbg { width: 100%; height: 100%; object-fit: cover; }
+	.ghero::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, transparent 40%, var(--bg) 99%); }
+	.gbar { position: absolute; top: 1rem; inset-inline: 0; z-index: 2; }
+	.gwrap { display: grid; grid-template-columns: 1fr 17rem; gap: 2.75rem; align-items: start; margin-top: -2.5rem; position: relative; z-index: 1; padding-bottom: 2rem; }
+	.gmain { min-width: 0; }
+	.gh1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
+	.gmeta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.9rem; font-size: var(--t-sm); color: var(--muted); }
+	.gmeta .m + .m::before, .mc + .m::before { content: '·'; color: var(--faint); margin-right: 0.55rem; }
+	.mc { font-family: var(--font-mono); font-weight: 700; color: #fff; background: var(--faint); padding: 0.12rem 0.5rem; border-radius: 6px; } /* metacritic */
+	.mc.mid { background: #d9a93a; }
+	.mc.hi { background: var(--live); }
+	.gside { display: flex; flex-direction: column; gap: 1.25rem; position: sticky; top: 5.25rem; }
+	@media (max-width: 820px) { .gwrap { grid-template-columns: 1fr; gap: 1.5rem; } .gside { position: static; } }
+
 	.side { display: flex; flex-direction: column; gap: 1.75rem; position: sticky; top: 5.25rem; }
 	.panel .eyebrow { display: block; margin-bottom: 0.8rem; }
 	.dl-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.48rem 0; border-bottom: 1px solid var(--line); font-size: var(--t-sm); }
 	.dl-row:last-child { border-bottom: 0; }
 	.dl-row dt { color: var(--muted); }
 	.dl-row dd { font-weight: 500; text-align: right; }
+	.buy { display: inline-flex; align-items: center; gap: 0.5rem; width: 100%; justify-content: center; background: var(--accent); color: #fff; font-weight: 600; font-size: var(--t-sm); padding: 0.7rem 1rem; border-radius: var(--r-sm); transition: filter .15s; }
+	.buy:hover { filter: brightness(1.08); }
 	.watch { display: flex; flex-direction: column; gap: 0.45rem; }
 	.prov { background: var(--bg-soft); border-radius: var(--r-sm); padding: 0.55rem 0.85rem; font-size: var(--t-sm); font-weight: 500; transition: background .15s, color .15s; }
 	.prov:hover { background: var(--accent-soft); color: var(--accent); }

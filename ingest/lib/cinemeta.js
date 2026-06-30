@@ -69,6 +69,8 @@ export async function enrichMovie(meta) {
 		kind: 'movie',
 		runtime: parseInt(String(m.runtime ?? '').match(/\d+/)?.[0] ?? '', 10) || null,
 		director: (Array.isArray(m.director) ? m.director[0] : m.director) ?? null,
+		cast: (m.cast ?? []).slice(0, 10),
+		released: m.released ?? (m.year ? String(m.year) : null),
 	};
 	return meta;
 }
