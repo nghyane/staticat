@@ -1,71 +1,81 @@
-// Watchdex ingest — Cloudflare Cron Worker (the WRITE side).
-// Schedule (wrangler.toml) -> pull one AniList snapshot -> assemble() the SAME
-// R2 layout the SPA reads -> put to R2 (binding DATA) with per-file cache
-// headers. No rebuild on data change: the SPA fetches fresh from R2 (SWR).
-// The frontend never calls AniList -> read path has no third-party API dep.
+// Watchdex ingest — Cloudflare Cron Worker (ALT to GitHub Actions).
+// AniList 403-blocks CF Worker IPs, so this path needs RELAY_URL (a non-CF
+// relay, ingest/relay.ts). Same spec write model as ingest/push-r2.mjs:
+// idempotent rev via hash, immutable meta.v{rev} first, head pointer last —
+// but writes via the R2 binding (no S3 creds). GitHub Actions is the default;
+// keep this only if you set up a relay.
 import { fetchAniList } from '../../ingest/lib/anilist.js';
-import { assemble } from '../../ingest/lib/contract.js';
+import { paths, hash, buildEntities, buildListings } from '../../ingest/lib/contract.js';
 
 interface R2Bucket {
+	get(key: string): Promise<{ text(): Promise<string> } | null>;
 	put(key: string, value: string, opts?: { httpMetadata?: { contentType?: string; cacheControl?: string } }): Promise<unknown>;
+	delete(key: string): Promise<unknown>;
 }
-interface Env {
-	DATA: R2Bucket;
-	PAGES?: string;
-	INGEST_SECRET?: string;
-	RELAY_URL?: string; // non-CF relay for AniList (Workers are IP-blocked)
-}
+interface Env { DATA: R2Bucket; PAGES?: string; INGEST_SECRET?: string; RELAY_URL?: string }
 
-// Mirror contract/discovery.ts cacheControl. Pointers refresh fast; entities a
-// touch slower; both serve instantly via stale-while-revalidate.
-const POINTER = 'public, max-age=120, stale-while-revalidate=86400, stale-if-error=86400';
-const ENTITY = 'public, max-age=300, stale-while-revalidate=86400';
-const cacheFor = (key: string) =>
-	key.endsWith('/home.json') || key.endsWith('/index.json') || key.endsWith('manifest.json') ? POINTER : ENTITY;
+const POINTER = 'public, max-age=30, stale-while-revalidate=300, stale-if-error=86400';
+const POPULAR = 'public, max-age=300, stale-while-revalidate=3600';
+const IMMUTABLE = 'public, max-age=31536000, immutable';
+const CALENDAR = 'public, max-age=1800, stale-while-revalidate=86400';
+const cacheFor = (k: string) =>
+	/\.v\d+\.json$/.test(k) ? IMMUTABLE
+	: /\/head\.json$|\/feed\/latest\/0\.json$|\/search\/head\.json$/.test(k) ? POINTER
+	: k.includes('/feed/popular/') ? POPULAR
+	: k.includes('/calendar/') ? CALENDAR
+	: POINTER;
+const key = (p: string) => p.replace(/^\//, '');
 
-async function ingest(env: Env): Promise<{ files: number; titles: number }> {
+async function ingest(env: Env): Promise<{ titles: number; changed: number }> {
 	const pages = Number(env.PAGES ?? 3);
-	let seed: Array<{ id: string }> = [];
+	let seed: any[] = [];
 	for (let p = 1; p <= pages; p++) seed.push(...(await fetchAniList(50, p, env.RELAY_URL ?? '')));
-	seed = [...new Map(seed.map((e) => [e.id, e])).values()]; // dedupe across pages
+	seed = [...new Map(seed.map((e) => [e.id, e])).values()];
 
-	const files = assemble(
-		{ anime: { seed, all: seed }, movie: { seed: [], all: [] }, game: { seed: [], all: [] } },
-		Date.now()
-	) as Map<string, unknown>;
+	const entities = buildEntities(seed);
+	const { pointers, calendars, searchIndex } = buildListings(seed);
+	const get = async (k: string) => (await env.DATA.get(k))?.text() ?? null;
+	const put = (k: string, v: string) => env.DATA.put(k, v, { httpMetadata: { contentType: 'application/json', cacheControl: cacheFor(k) } });
+	const now = Math.floor(Date.now() / 1000);
 
-	// R2 keys have no leading slash. Put concurrently in bounded chunks (binding
-	// ops, not subrequests) so a ~150-file write stays well within Worker limits.
-	const entries = [...files].map(([path, value]) => [path.replace(/^\//, ''), value] as const);
-	for (let i = 0; i < entries.length; i += 25) {
-		await Promise.all(
-			entries.slice(i, i + 25).map(([key, value]) =>
-				env.DATA.put(key, JSON.stringify(value), {
-					httpMetadata: { contentType: 'application/json', cacheControl: cacheFor(key) },
-				})
-			)
-		);
+	const idx = JSON.parse((await get('v1/_heads.json')) || '{}');
+	const headPuts: [string, string][] = [];
+	let changed = 0;
+	for (const e of entities) {
+		const h = hash(JSON.stringify(e));
+		const prev = idx[e.id];
+		if (prev && prev.hash === h) continue;
+		const rev = (prev?.rev ?? 0) + 1;
+		idx[e.id] = { rev, hash: h };
+		await put(key(paths.entityMeta(e.id, rev)), JSON.stringify({ rev, ...e }));
+		headPuts.push([key(paths.entityHead(e.id)), JSON.stringify({ id: e.id, rev, updatedAt: now, hash: h })]);
+		changed++;
 	}
-	return { files: entries.length, titles: seed.length };
+	const live = new Set(entities.map((e) => e.id));
+	for (const id of Object.keys(idx).filter((i) => !live.has(i))) { await env.DATA.delete(key(paths.entityHead(id))); delete idx[id]; }
+
+	const sHead = JSON.parse((await get(key(paths.searchHead()))) || 'null');
+	const sHash = hash(JSON.stringify(searchIndex));
+	if (!sHead || sHead.hash !== sHash) {
+		const ver = (sHead?.ver ?? 0) + 1;
+		await put(key(paths.searchIndex(ver)), JSON.stringify(searchIndex));
+		pointers.set(paths.searchHead(), { ver, hash: sHash });
+	}
+	for (const [p, v] of [...pointers, ...calendars]) await put(key(p), JSON.stringify(v));
+	for (const [k, body] of headPuts) await put(k, body);
+	await env.DATA.put('v1/_heads.json', JSON.stringify(idx), { httpMetadata: { cacheControl: 'no-store' } });
+	return { titles: seed.length, changed };
 }
 
 export default {
-	// Cron entrypoint — runs on the schedule in wrangler.toml.
-	async scheduled(_event: unknown, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
-		ctx.waitUntil(ingest(env).then((r) => console.log(`ingest: ${r.titles} titles -> ${r.files} files`)));
+	async scheduled(_e: unknown, env: Env, ctx: { waitUntil(p: Promise<unknown>): void }) {
+		ctx.waitUntil(ingest(env).then((r) => console.log(`ingest: ${r.titles} titles, ${r.changed} changed`)));
 	},
-	// Manual trigger (behind a secret) + health.
 	async fetch(req: Request, env: Env): Promise<Response> {
-		const url = new URL(req.url);
-		if (url.pathname === '/ingest') {
-			if (env.INGEST_SECRET && req.headers.get('authorization') !== `Bearer ${env.INGEST_SECRET}`) {
-				return new Response('unauthorized', { status: 401 });
-			}
-			try {
-				return Response.json({ ok: true, ...(await ingest(env)) });
-			} catch (e) {
-				return Response.json({ ok: false, error: String(e), stack: (e as Error)?.stack?.split('\n').slice(0, 6) }, { status: 500 });
-			}
+		if (new URL(req.url).pathname === '/ingest') {
+			if (env.INGEST_SECRET && req.headers.get('authorization') !== `Bearer ${env.INGEST_SECRET}`) return new Response('unauthorized', { status: 401 });
+			try { return Response.json({ ok: true, ...(await ingest(env)) }); }
+			catch (e) { return Response.json({ ok: false, error: String(e) }, { status: 500 }); }
 		}
 		return new Response('watchdex ingest worker', { status: 200 });
 	},

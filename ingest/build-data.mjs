@@ -1,37 +1,43 @@
-// Local seed: AniList -> Watchdex R2 layout under web/static/v1/ (R2 stand-in
-// for dev). Prod runs the SAME assemble() in the Cloudflare Cron Worker -> R2.
-//
-// ONE source pull (the catalog snapshot). Everything else — home, refs,
-// search, filters — is derived from that snapshot and served from R2. Ref
-// resolution (related/recs) is pruned against the published set in assemble():
-// no per-ref API call. A fuller catalog in R2 = more refs resolve, all R2-side.
-// Run: node ingest/build-data.mjs
+// Local seed: AniList -> spec layout under web/static/v1/ (R2 stand-in, dev).
+// Fresh build → every entity rev=1, search ver=1. The R2 incremental writer
+// (push-r2.mjs) does idempotent rev/ver bumps against published state.
+// Run: node ingest/build-data.mjs   (PAGES=n for a fuller snapshot)
 import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fetchAniList } from './lib/anilist.js';
-import { assemble } from './lib/contract.js';
+import { paths, hash, buildEntities, buildListings } from './lib/contract.js';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const STATIC = join(ROOT, 'web', 'static');
-const PAGES = Number(process.env.PAGES ?? 1); // 50 titles/page
+const PAGES = Number(process.env.PAGES ?? 1);
+const now = Math.floor(Date.now() / 1000);
 
 let seed = [];
 for (let p = 1; p <= PAGES; p++) seed.push(...(await fetchAniList(50, p)));
-// dedupe by id (overlap across pages)
 seed = [...new Map(seed.map((e) => [e.id, e])).values()];
 
-const files = assemble(
-  { anime: { seed, all: seed }, movie: { seed: [], all: [] }, game: { seed: [], all: [] } },
-  Date.now()
-);
+const entities = buildEntities(seed);
+const { pointers, calendars, searchIndex } = buildListings(seed);
+
+// path -> json (immutable first, pointers last — matches write order)
+const files = new Map();
+for (const e of entities) {
+	const h = hash(JSON.stringify(e));
+	files.set(paths.entityMeta(e.id, 1), { rev: 1, ...e }); // immutable
+	files.set(paths.entityHead(e.id), { id: e.id, rev: 1, updatedAt: now, hash: h }); // pointer
+}
+files.set(paths.searchIndex(1), searchIndex); // immutable
+files.set(paths.searchHead(), { ver: 1, hash: hash(JSON.stringify(searchIndex)) }); // pointer
+for (const [p, v] of pointers) files.set(p, v);
+for (const [p, v] of calendars) files.set(p, v);
 
 await rm(join(STATIC, 'v1'), { recursive: true, force: true });
 let n = 0;
 for (const [p, value] of files) {
-  const out = join(STATIC, p);
-  await mkdir(dirname(out), { recursive: true });
-  await writeFile(out, JSON.stringify(value));
-  n++;
+	const out = join(STATIC, p);
+	await mkdir(dirname(out), { recursive: true });
+	await writeFile(out, JSON.stringify(value));
+	n++;
 }
-console.log(`ingest: ${seed.length} anime (${PAGES} page) -> ${n} files`);
+console.log(`ingest: ${seed.length} anime -> ${n} files (rev=1, ver=1)`);
