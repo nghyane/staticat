@@ -5,22 +5,8 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { onNavigate } from '$app/navigation';
 
 	let { children } = $props();
-
-	// Cross-fade between routes. Client nav is instant, which reads as "nothing
-	// happened" — a short view transition gives the eye a cue the page changed.
-	// No-op where unsupported or when the user prefers reduced motion.
-	onNavigate((navigation) => {
-		if (!document.startViewTransition || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-		return new Promise((resolve) => {
-			document.startViewTransition(async () => {
-				resolve();
-				await navigation.complete;
-			});
-		});
-	});
 
 	const tabs = [
 		{ label: 'Anime', href: '/' },
