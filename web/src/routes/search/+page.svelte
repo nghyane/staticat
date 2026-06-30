@@ -7,21 +7,23 @@
 
 	let { data }: { data: PageData } = $props();
 
-	let q = $state(page.url.searchParams.get('q') ?? '');
-	let kind = $state(page.url.searchParams.get('kind') ?? '');
-	let genre = $state(page.url.searchParams.get('genre') ?? '');
-	let status = $state(page.url.searchParams.get('status') ?? '');
-	let sort = $state<'rating' | 'title' | 'year'>('rating');
-
+	const PAGE_SIZE = 30;
 	const KINDS = [{ v: '', l: 'All' }, { v: 'anime', l: 'Anime' }, { v: 'manga', l: 'Manga' }];
 
-	// top genres present in the catalog (by frequency)
-	const genres = (() => {
+	const p0 = page.url.searchParams;
+	let q = $state(p0.get('q') ?? '');
+	let kind = $state(p0.get('kind') ?? '');
+	let genre = $state(p0.get('genre') ?? '');
+	let status = $state(p0.get('status') ?? '');
+	let sort = $state<'rating' | 'year' | 'title'>('rating');
+	let pageNum = $state(Number(p0.get('page')) || 1);
+
+	// genre options scoped to the active kind
+	const genreOpts = $derived.by(() => {
 		const c = new Map<string, number>();
-		for (const e of data.index) for (const g of e.genres) c.set(g, (c.get(g) ?? 0) + 1);
-		return [...c.entries()].sort((a, b) => b[1] - a[1]).slice(0, 14).map(([g]) => g);
-	})();
-	const STATUSES = ['airing', 'upcoming', 'finished'] as const;
+		for (const e of data.index) if (!kind || e.kind === kind) for (const g of e.genres) c.set(g, (c.get(g) ?? 0) + 1);
+		return [...c.entries()].sort((a, b) => b[1] - a[1]).map(([g]) => g);
+	});
 
 	function score(e: CatalogEntry, term: string): number {
 		const t = e.title.toLowerCase();
@@ -37,73 +39,101 @@
 		let list = data.index.filter(
 			(e) => (!kind || e.kind === kind) && (!genre || e.genres.includes(genre)) && (!status || e.status === status) && (!term || score(e, term) > 0)
 		);
-		if (term) list = list.sort((a, b) => score(b, term) - score(a, term) || (b.rating ?? 0) - (a.rating ?? 0));
-		else if (sort === 'title') list = [...list].sort((a, b) => a.title.localeCompare(b.title));
-		else if (sort === 'year') list = [...list].sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
-		else list = [...list].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-		return list.slice(0, 120);
+		if (term) return list.sort((a, b) => score(b, term) - score(a, term) || (b.rating ?? 0) - (a.rating ?? 0));
+		if (sort === 'title') return [...list].sort((a, b) => a.title.localeCompare(b.title));
+		if (sort === 'year') return [...list].sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
+		return [...list].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
 	});
 
-	// keep the URL shareable
+	const total = $derived(results.length);
+	const pages = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
+	const clampedPage = $derived(Math.min(pageNum, pages));
+	const shown = $derived(results.slice((clampedPage - 1) * PAGE_SIZE, clampedPage * PAGE_SIZE));
+
+	// reset to page 1 whenever the query/filters change
+	let lastKey = $state('');
 	$effect(() => {
-		const p = new URLSearchParams();
-		if (q.trim()) p.set('q', q.trim());
-		if (kind) p.set('kind', kind);
-		if (genre) p.set('genre', genre);
-		if (status) p.set('status', status);
-		const qs = p.toString();
+		const key = `${q}|${kind}|${genre}|${status}|${sort}`;
+		if (key !== lastKey) { lastKey = key; pageNum = 1; }
+	});
+
+	// shareable URL
+	$effect(() => {
+		const sp = new URLSearchParams();
+		if (q.trim()) sp.set('q', q.trim());
+		if (kind) sp.set('kind', kind);
+		if (genre) sp.set('genre', genre);
+		if (status) sp.set('status', status);
+		if (clampedPage > 1) sp.set('page', String(clampedPage));
+		const qs = sp.toString();
 		replaceState(qs ? `/search?${qs}` : '/search', {});
 	});
 
-	const toggle = (cur: string, v: string) => (cur === v ? '' : v);
+	// windowed page numbers with ellipsis
+	const pageList = $derived.by(() => {
+		const set = new Set([1, pages, clampedPage, clampedPage - 1, clampedPage + 1, clampedPage - 2, clampedPage + 2].filter((n) => n >= 1 && n <= pages));
+		const arr = [...set].sort((a, b) => a - b);
+		const out: (number | '…')[] = [];
+		for (let i = 0; i < arr.length; i++) { if (i && arr[i] - arr[i - 1] > 1) out.push('…'); out.push(arr[i]); }
+		return out;
+	});
+	function go(n: number) { pageNum = Math.min(Math.max(1, n), pages); if (typeof scrollTo === 'function') scrollTo({ top: 0 }); }
 </script>
 
 <svelte:head>
-	<title>{q ? `${q} — search` : 'Search anime'} | Watchdex</title>
-	<meta name="description" content="Search anime by title, genre and status." />
+	<title>{q ? `${q} — search` : 'Search anime & manga'} | Watchdex</title>
+	<meta name="description" content="Search anime and manga by title, genre and status." />
 </svelte:head>
 
 <div class="wrap page">
 	<div class="searchbar">
 		<svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
 		<!-- svelte-ignore a11y_autofocus -->
-		<input type="search" placeholder="Search anime by title…" aria-label="Search anime" bind:value={q} autofocus />
+		<input type="search" placeholder="Search anime & manga…" aria-label="Search" bind:value={q} autofocus />
+		{#if q}<button class="clear" aria-label="Clear" onclick={() => (q = '')}>&times;</button>{/if}
 	</div>
 
-	<div class="filters">
-		<div class="chips kinds">
+	<div class="bar">
+		<div class="segmented" role="tablist" aria-label="Type">
 			{#each KINDS as k}
-				<button class="chip" class:on={kind === k.v} onclick={() => (kind = k.v)}>{k.l}</button>
+				<button class="seg" class:on={kind === k.v} role="tab" aria-selected={kind === k.v} onclick={() => (kind = k.v)}>{k.l}</button>
 			{/each}
 		</div>
-		<div class="chips">
-			{#each STATUSES as s}
-				<button class="chip" class:on={status === s} onclick={() => (status = toggle(status, s))}>{s[0].toUpperCase() + s.slice(1)}</button>
-			{/each}
-		</div>
-		<div class="chips">
-			{#each genres as g}
-				<button class="chip" class:on={genre === g} onclick={() => (genre = toggle(genre, g))}>{g}</button>
-			{/each}
-		</div>
-		<div class="meta">
-			<span class="count">{results.length} result{results.length === 1 ? '' : 's'}</span>
-			{#if !q.trim()}
-				<label class="sort">Sort
-					<select bind:value={sort}>
-						<option value="rating">Rating</option>
-						<option value="year">Newest</option>
-						<option value="title">A–Z</option>
-					</select>
-				</label>
-			{/if}
-		</div>
+		<select aria-label="Genre" bind:value={genre}>
+			<option value="">All genres</option>
+			{#each genreOpts as g}<option value={g}>{g}</option>{/each}
+		</select>
+		<select aria-label="Status" bind:value={status}>
+			<option value="">Any status</option>
+			<option value="airing">Airing / Publishing</option>
+			<option value="upcoming">Upcoming</option>
+			<option value="finished">Finished</option>
+		</select>
+		{#if !q.trim()}
+			<select aria-label="Sort" bind:value={sort}>
+				<option value="rating">Top rated</option>
+				<option value="year">Newest</option>
+				<option value="title">A–Z</option>
+			</select>
+		{/if}
+		<span class="count">{total} result{total === 1 ? '' : 's'}</span>
 	</div>
 
-	{#if results.length > 0}
-		<div class="grid">{#each results as a (a.id)}<MediaCard {a} />{/each}</div>
+	{#if total > 0}
+		<div class="grid">{#each shown as a (a.id)}<MediaCard {a} />{/each}</div>
+
+		{#if pages > 1}
+			<nav class="pager" aria-label="Pagination">
+				<button class="pg" disabled={clampedPage === 1} onclick={() => go(clampedPage - 1)} aria-label="Previous">&lsaquo;</button>
+				{#each pageList as n}
+					{#if n === '…'}<span class="dots">…</span>
+					{:else}<button class="pg" class:on={n === clampedPage} onclick={() => go(n)} aria-current={n === clampedPage ? 'page' : undefined}>{n}</button>{/if}
+				{/each}
+				<button class="pg" disabled={clampedPage === pages} onclick={() => go(clampedPage + 1)} aria-label="Next">&rsaquo;</button>
+			</nav>
+		{/if}
 	{:else}
-		<p class="empty">No anime match. Try a different title or clear filters.</p>
+		<p class="empty">No {kind || 'titles'} match. Try a different title or clear filters.</p>
 	{/if}
 </div>
 
@@ -113,18 +143,25 @@
 	.searchbar:focus-within { box-shadow: 0 0 0 2px var(--accent); }
 	.searchbar input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font: inherit; font-size: var(--t-lg); color: var(--ink); }
 	.searchbar input::placeholder { color: var(--faint); }
+	.clear { border: 0; background: none; cursor: pointer; color: var(--faint); font-size: 1.5rem; line-height: 1; padding: 0 .25rem; }
+	.clear:hover { color: var(--ink); }
 
-	.filters { display: flex; flex-direction: column; gap: 0.75rem; margin: 1.5rem 0 2rem; }
-	.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-	.chip { font-family: inherit; cursor: pointer; font-size: var(--t-xs); color: var(--muted); background: var(--bg-soft); border: 0; padding: 0.35rem 0.75rem; border-radius: 999px; transition: background .14s, color .14s; }
-	.chip:hover { color: var(--ink); }
-	.chip.on { background: var(--accent); color: #fff; }
-	.meta { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 0.25rem; }
-	.count { font-size: var(--t-sm); color: var(--faint); }
-	.sort { font-size: var(--t-sm); color: var(--muted); display: inline-flex; align-items: center; gap: 0.4rem; }
-	.sort select { font: inherit; font-size: var(--t-sm); color: var(--ink); border: 1px solid var(--line); background: var(--bg); border-radius: var(--r-sm); padding: 0.25rem 0.5rem; }
+	.bar { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; margin: 1.25rem 0 2rem; }
+	.segmented { display: inline-flex; background: var(--bg-soft); border-radius: 999px; padding: 3px; }
+	.seg { font: inherit; font-size: var(--t-sm); cursor: pointer; border: 0; background: none; color: var(--muted); padding: 0.35rem 0.9rem; border-radius: 999px; transition: background .14s, color .14s; }
+	.seg.on { background: var(--bg); color: var(--ink); font-weight: 600; box-shadow: var(--shadow); }
+	.bar select { font: inherit; font-size: var(--t-sm); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 0.4rem 0.85rem; cursor: pointer; }
+	.bar select:focus-visible { outline: 2px solid var(--accent); }
+	.count { margin-left: auto; font-size: var(--t-sm); color: var(--faint); }
 
 	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 1.9rem 1.2rem; }
-	@media (max-width: 560px) { .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 1.4rem 0.8rem; } }
+	@media (max-width: 560px) { .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 1.4rem 0.8rem; } .count { margin-left: 0; width: 100%; } }
 	.empty { color: var(--muted); padding: 4rem 0; text-align: center; }
+
+	.pager { display: flex; align-items: center; justify-content: center; gap: 0.3rem; margin: 3rem 0 1rem; }
+	.pg { font: inherit; font-size: var(--t-sm); min-width: 2.25rem; height: 2.25rem; padding: 0 0.6rem; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: var(--r-sm); cursor: pointer; transition: background .14s, border-color .14s; }
+	.pg:hover:not(:disabled) { background: var(--bg-soft); }
+	.pg.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+	.pg:disabled { color: var(--faint); cursor: default; }
+	.dots { color: var(--faint); padding: 0 0.2rem; }
 </style>
