@@ -11,9 +11,11 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 
-			// SPA: static shell + client routing; unrendered routes fall back to
-			// index.html and the client fetches the R2 contract.
-			adapter: adapter({ fallback: 'index.html' })
+			// Hybrid: SEO landings (/, /[type], /genre/*) prerender to real HTML;
+			// everything else is a client-routed SPA. The fallback gets its own
+			// name (200.html) so it doesn't clobber the prerendered index.html;
+			// static/_redirects routes unmatched paths to it with a 200.
+			adapter: adapter({ fallback: '200.html' })
 		})
 	]
 });

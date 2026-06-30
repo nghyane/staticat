@@ -1,8 +1,10 @@
 <script lang="ts">
 	import MediaCard from './MediaCard.svelte';
 	import { slugifyGenre, type CatalogEntry, type Kind } from '$lib/types';
+	import { SITE } from '$lib/site';
 
 	let { kind, items }: { kind: Kind; items: CatalogEntry[] } = $props();
+	const canonical = $derived(`${SITE}/${kind}`);
 
 	// per-kind copy — distinct keywords/intent (anti-thin-content, SEO)
 	const COPY: Record<string, { eyebrow: string; h1: string; intro: string }> = {
@@ -35,6 +37,11 @@
 <svelte:head>
 	<title>{c.h1} | Watchdex</title>
 	<meta name="description" content={c.intro} />
+	<link rel="canonical" href={canonical} />
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={canonical} />
+	<meta property="og:title" content={`${c.h1} | Watchdex`} />
+	<meta property="og:description" content={c.intro} />
 	{@html `<script type="application/ld+json">${JSON.stringify(jsonLd)}<\/script>`}
 </svelte:head>
 
