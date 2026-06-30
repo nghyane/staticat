@@ -78,7 +78,7 @@
 				{#each metaItems as m}<span class="m">{m}</span>{/each}
 			</p>
 			<div class="chips">
-				{#each a.genres as g}<span class="chip chip-accent">{g}</span>{/each}
+				{#each a.genres as g}<a class="chip chip-accent" href={`/search?genre=${encodeURIComponent(g)}`}>{g}</a>{/each}
 				{#each a.tags.slice(0, 4) as t}<span class="chip">{t}</span>{/each}
 			</div>
 		</div>

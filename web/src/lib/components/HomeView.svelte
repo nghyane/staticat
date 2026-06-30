@@ -17,7 +17,7 @@
 	<div class="wrap">
 		{#if upNext.length > 0}
 			<section class="block">
-				<header class="section-h"><h2>Airing next</h2><a href="/">Full schedule &rarr;</a></header>
+				<header class="section-h"><h2>Airing next</h2><a href="/calendar">Full schedule &rarr;</a></header>
 				<div class="rows">{#each upNext as a (a.id)}<ScheduleRow {a} />{/each}</div>
 			</section>
 		{/if}

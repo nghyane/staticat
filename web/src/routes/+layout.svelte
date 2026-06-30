@@ -5,6 +5,7 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 
 	let { children } = $props();
 
@@ -13,6 +14,12 @@
 		{ label: 'Movies', href: '/movie' },
 		{ label: 'Games', href: '/game' }
 	];
+
+	let q = $state('');
+	function search(e: SubmitEvent) {
+		e.preventDefault();
+		goto(q.trim() ? `/search?q=${encodeURIComponent(q.trim())}` : '/search');
+	}
 
 	// One shared interval drives every [data-airat] countdown. Re-queried each
 	// tick so client navigation needs no re-binding. Zero layout shift: the
@@ -43,10 +50,11 @@
 				{@const on = t.href === '/' ? page.url.pathname === '/' || page.url.pathname.startsWith('/anime') : page.url.pathname.startsWith(t.href)}
 				<a href={t.href} class="tab" class:on aria-current={on ? 'page' : undefined}>{t.label}</a>
 			{/each}
+			<a href="/calendar" class="tab" class:on={page.url.pathname.startsWith('/calendar')}>Schedule</a>
 		</nav>
-		<form class="search" role="search" onsubmit={(e) => e.preventDefault()}>
+		<form class="search" role="search" onsubmit={search}>
 			<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-			<input type="search" placeholder="Search" aria-label="Search" />
+			<input type="search" placeholder="Search" aria-label="Search" bind:value={q} />
 		</form>
 	</div>
 </header>
