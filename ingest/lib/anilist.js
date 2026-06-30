@@ -3,7 +3,7 @@
 // this snapshot and served from R2. AniList 403s CF Worker IPs + blank UAs.
 const ENDPOINT = 'https://graphql.anilist.co';
 
-const MINI = `id type title { romaji english } coverImage { medium }`;
+const MINI = `id idMal type title { romaji english } coverImage { medium }`;
 const FIELDS = `
   id idMal
   title { romaji english native }
@@ -40,11 +40,13 @@ const src = (url) => (url ? `src:${url}` : null); // blob token (Data⟂Blob)
 const aid = (n) => `anime:${n}`;
 
 // EntityMeta (immutable per rev — rev is assigned by the writer, not here).
+// id is keyed by MAL id (crawler-independent: every source maps to MAL), NOT
+// the AniList id. Entries without a MAL mapping are dropped (see fetch*).
 function mapEntity(m) {
-	const title = m.title?.romaji ?? m.title?.english ?? `Anime ${m.id}`;
+	const title = m.title?.romaji ?? m.title?.english ?? `Anime ${m.idMal}`;
 	const alt = [...new Set([m.title?.english, ...(m.synonyms ?? [])].filter((x) => x && x !== title))];
 	return {
-		id: aid(m.id),
+		id: aid(m.idMal),
 		kind: 'anime',
 		title,
 		alt,
@@ -57,13 +59,13 @@ function mapEntity(m) {
 		tags: (m.tags ?? []).filter((t) => !t.isMediaSpoiler).sort((a, b) => b.rank - a.rank).slice(0, 6).map((t) => t.name),
 		status: STATUS[m.status] ?? 'unknown',
 		rating: m.averageScore ?? null,
-		ids: { anilist: m.id, ...(m.idMal ? { mal: m.idMal } : {}) },
+		ids: { mal: m.idMal, anilist: m.id },
 		desc: clean(m.description),
 		availability: (m.externalLinks ?? []).filter((l) => l.type === 'STREAMING').slice(0, 6).map((l) => ({ provider: l.site, region: '', kind: 'sub', url: l.url })),
 		schedule: m.nextAiringEpisode ? { nextEp: m.nextAiringEpisode.episode, airAt: m.nextAiringEpisode.airingAt } : null,
 		valueAdd: {
-			related: (m.relations?.edges ?? []).filter((e) => e.node?.type === 'ANIME').map((e) => aid(e.node.id)),
-			recommendations: (m.recommendations?.nodes ?? []).map((n) => n.mediaRecommendation).filter((n) => n?.type === 'ANIME').map((n) => aid(n.id)),
+			related: (m.relations?.edges ?? []).filter((e) => e.node?.type === 'ANIME' && e.node.idMal).map((e) => aid(e.node.idMal)),
+			recommendations: (m.recommendations?.nodes ?? []).map((n) => n.mediaRecommendation).filter((n) => n?.type === 'ANIME' && n.idMal).map((n) => aid(n.idMal)),
 		},
 		characters: (m.characters?.edges ?? [])
 			.map((e) => ({ name: e.node?.name?.full ?? '', image: src(e.node?.image?.medium) ?? 'src:', role: titleCase(e.role ?? ''), va: e.voiceActors?.[0]?.name?.full ?? null, vaImage: src(e.voiceActors?.[0]?.image?.medium) }))
@@ -97,14 +99,16 @@ async function gql(query, variables, relayUrl) {
 	return json;
 }
 
+const withMal = (media) => media.filter((m) => m.idMal).map(mapEntity); // canonical id needs a MAL mapping
+
 export async function fetchAniList(perPage = 30, page = 1, relayUrl = '') {
 	const json = await gql(QUERY, { perPage, page }, relayUrl);
-	return (json?.data?.Page?.media ?? []).map(mapEntity);
+	return withMal(json?.data?.Page?.media ?? []);
 }
 
 /** Top popular across all statuses — adds catalog depth so related/recs (which
  *  point at finished titles) resolve internally. */
 export async function fetchPopular(perPage = 30, page = 1, relayUrl = '') {
 	const json = await gql(POPULAR, { perPage, page }, relayUrl);
-	return (json?.data?.Page?.media ?? []).map(mapEntity);
+	return withMal(json?.data?.Page?.media ?? []);
 }
