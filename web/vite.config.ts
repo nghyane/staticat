@@ -1,4 +1,4 @@
-import adapter from '@sveltejs/adapter-static';
+import adapter from '@sveltejs/adapter-cloudflare';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
@@ -11,11 +11,11 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 
-			// Hybrid: SEO landings (/, /[type], /genre/*) prerender to real HTML;
-			// everything else is a client-routed SPA. The fallback gets its own
-			// name (200.html) so it doesn't clobber the prerendered index.html;
-			// static/_redirects routes unmatched paths to it with a 200.
-			adapter: adapter({ fallback: '200.html' })
+			// Hybrid on Cloudflare Pages: SEO landings (/, /[type], /genre/*)
+			// prerender to static HTML (served pure-CDN, no compute); other routes
+			// are a client-routed SPA. adapter-cloudflare's _worker.js + _routes.json
+			// handle the SPA fallback natively — no _redirects, no 200.html dance.
+			adapter: adapter()
 		})
 	]
 });
