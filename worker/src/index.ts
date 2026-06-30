@@ -13,6 +13,7 @@ interface Env {
 	DATA: R2Bucket;
 	PAGES?: string;
 	INGEST_SECRET?: string;
+	RELAY_URL?: string; // non-CF relay for AniList (Workers are IP-blocked)
 }
 
 // Mirror contract/discovery.ts cacheControl. Pointers refresh fast; entities a
@@ -25,7 +26,7 @@ const cacheFor = (key: string) =>
 async function ingest(env: Env): Promise<{ files: number; titles: number }> {
 	const pages = Number(env.PAGES ?? 3);
 	let seed: Array<{ id: string }> = [];
-	for (let p = 1; p <= pages; p++) seed.push(...(await fetchAniList(50, p)));
+	for (let p = 1; p <= pages; p++) seed.push(...(await fetchAniList(50, p, env.RELAY_URL ?? '')));
 	seed = [...new Map(seed.map((e) => [e.id, e])).values()]; // dedupe across pages
 
 	const files = assemble(

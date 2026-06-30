@@ -106,14 +106,16 @@ export function toCard(e) {
   return c;
 }
 
-async function gql(query, variables) {
-  const res = await fetch(ENDPOINT, {
+// AniList hard-blocks Cloudflare Worker egress IPs (403 "manually blocked").
+// When RELAY_URL is set the GraphQL POST is sent to a tiny non-CF relay that
+// forwards to AniList; otherwise it goes direct (works from local/Deno/GH).
+async function gql(query, variables, relayUrl) {
+  const res = await fetch(relayUrl || ENDPOINT, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       accept: 'application/json',
-      // AniList 403s requests from datacenter IPs with no/default UA. A
-      // descriptive identifying UA gets the Cloudflare Worker through.
+      // AniList 403s requests with no/default UA — identify ourselves.
       'user-agent': 'Watchdex/1.0 (+https://watchdex.pages.dev; contact admin)',
     },
     body: JSON.stringify({ query, variables }),
@@ -127,7 +129,7 @@ async function gql(query, variables) {
 /** Pull the catalog snapshot. The ONLY place that touches AniList — everything
  *  downstream (home, refs, search, filters) is derived from this and served
  *  from R2. perPage up to 50; paginate via `page` for a fuller catalog. */
-export async function fetchAniList(perPage = 30, page = 1) {
-  const json = await gql(QUERY, { perPage, page });
+export async function fetchAniList(perPage = 30, page = 1, relayUrl = '') {
+  const json = await gql(QUERY, { perPage, page }, relayUrl);
   return (json?.data?.Page?.media ?? []).map(mapEntity);
 }
