@@ -1,5 +1,7 @@
 <script lang="ts">
 	import MediaCard from '$lib/components/MediaCard.svelte';
+	import Select from '$lib/components/Select.svelte';
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import type { PageData } from './$types';
@@ -15,15 +17,27 @@
 	let kind = $state(p0.get('kind') ?? '');
 	let genre = $state(p0.get('genre') ?? '');
 	let status = $state(p0.get('status') ?? '');
-	let sort = $state<'rating' | 'year' | 'title'>('rating');
+	let sort = $state(p0.get('sort') ?? 'rating');
 	let pageNum = $state(Number(p0.get('page')) || 1);
 
 	// genre options scoped to the active kind
-	const genreOpts = $derived.by(() => {
+	const genreOptions = $derived.by(() => {
 		const c = new Map<string, number>();
 		for (const e of data.index) if (!kind || e.kind === kind) for (const g of e.genres) c.set(g, (c.get(g) ?? 0) + 1);
-		return [...c.entries()].sort((a, b) => b[1] - a[1]).map(([g]) => g);
+		const opts = [...c.entries()].sort((a, b) => b[1] - a[1]).map(([g]) => ({ value: g, label: g }));
+		return [{ value: '', label: 'All genres' }, ...opts];
 	});
+	const statusOptions = [
+		{ value: '', label: 'Any status' },
+		{ value: 'airing', label: 'Airing / Publishing' },
+		{ value: 'upcoming', label: 'Upcoming' },
+		{ value: 'finished', label: 'Finished' }
+	];
+	const sortOptions = [
+		{ value: 'rating', label: 'Top rated' },
+		{ value: 'year', label: 'Newest' },
+		{ value: 'title', label: 'A–Z' }
+	];
 
 	function score(e: CatalogEntry, term: string): number {
 		const t = e.title.toLowerCase();
@@ -57,16 +71,20 @@
 		if (key !== lastKey) { lastKey = key; pageNum = 1; }
 	});
 
-	// shareable URL
+	// shareable URL — only after mount (replaceState needs the client router ready)
+	let mounted = $state(false);
+	onMount(() => (mounted = true));
 	$effect(() => {
 		const sp = new URLSearchParams();
 		if (q.trim()) sp.set('q', q.trim());
 		if (kind) sp.set('kind', kind);
 		if (genre) sp.set('genre', genre);
 		if (status) sp.set('status', status);
+		if (!q.trim() && sort !== 'rating') sp.set('sort', sort);
 		if (clampedPage > 1) sp.set('page', String(clampedPage));
 		const qs = sp.toString();
-		replaceState(qs ? `/search?${qs}` : '/search', {});
+		if (!mounted) return;
+		try { replaceState(qs ? `/search?${qs}` : '/search', {}); } catch { /* router not ready */ }
 	});
 
 	// windowed page numbers with ellipsis
@@ -99,23 +117,9 @@
 				<button class="seg" class:on={kind === k.v} role="tab" aria-selected={kind === k.v} onclick={() => (kind = k.v)}>{k.l}</button>
 			{/each}
 		</div>
-		<select aria-label="Genre" bind:value={genre}>
-			<option value="">All genres</option>
-			{#each genreOpts as g}<option value={g}>{g}</option>{/each}
-		</select>
-		<select aria-label="Status" bind:value={status}>
-			<option value="">Any status</option>
-			<option value="airing">Airing / Publishing</option>
-			<option value="upcoming">Upcoming</option>
-			<option value="finished">Finished</option>
-		</select>
-		{#if !q.trim()}
-			<select aria-label="Sort" bind:value={sort}>
-				<option value="rating">Top rated</option>
-				<option value="year">Newest</option>
-				<option value="title">A–Z</option>
-			</select>
-		{/if}
+		<Select value={genre} options={genreOptions} label="All genres" onchange={(v) => (genre = v)} />
+		<Select value={status} options={statusOptions} label="Any status" onchange={(v) => (status = v)} />
+		{#if !q.trim()}<Select value={sort} options={sortOptions} label="Top rated" onchange={(v) => (sort = v)} />{/if}
 		<span class="count">{total} result{total === 1 ? '' : 's'}</span>
 	</div>
 
@@ -150,8 +154,6 @@
 	.segmented { display: inline-flex; background: var(--bg-soft); border-radius: 999px; padding: 3px; }
 	.seg { font: inherit; font-size: var(--t-sm); cursor: pointer; border: 0; background: none; color: var(--muted); padding: 0.35rem 0.9rem; border-radius: 999px; transition: background .14s, color .14s; }
 	.seg.on { background: var(--bg); color: var(--ink); font-weight: 600; box-shadow: var(--shadow); }
-	.bar select { font: inherit; font-size: var(--t-sm); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 0.4rem 0.85rem; cursor: pointer; }
-	.bar select:focus-visible { outline: 2px solid var(--accent); }
 	.count { margin-left: auto; font-size: var(--t-sm); color: var(--faint); }
 
 	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 1.9rem 1.2rem; }

@@ -69,7 +69,8 @@
 	.tab.on::after { content: ''; position: absolute; left: 0.6rem; right: 0.6rem; bottom: -1px; height: 2px; background: var(--accent); border-radius: 2px 2px 0 0; }
 	.search { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; align-self: center; width: min(16rem, 32vw); height: 2.25rem; padding: 0 0.8rem; background: var(--bg-soft); border-radius: 10px; color: var(--faint); font-size: var(--t-sm); transition: color .15s, box-shadow .15s; }
 	.search:hover { color: var(--muted); }
-	.search.on, .search:focus-visible { box-shadow: 0 0 0 2px var(--accent); color: var(--muted); }
+	.search.on { color: var(--muted); }
+	.search:focus-visible { box-shadow: 0 0 0 2px var(--accent); color: var(--muted); }
 	.search .ph { flex: 1; min-width: 0; }
 	main { padding-bottom: 5rem; }
 	.ftr { border-top: 1px solid var(--line); color: var(--faint); font-size: var(--t-xs); padding-block: 2rem; }
