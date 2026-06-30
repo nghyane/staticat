@@ -1,0 +1,187 @@
+<script lang="ts">
+	import Countdown from '$lib/components/Countdown.svelte';
+	import MiniCard from '$lib/components/MiniCard.svelte';
+	import type { PageData } from './$types';
+
+	let { data }: { data: PageData } = $props();
+	const a = data.a;
+	const known = data.known;
+
+	const num = (n: number | null) => (n ? n.toLocaleString('en-US') : null);
+	const statusLabel = a.status === 'RELEASING' ? 'Airing' : a.status ? a.status[0] + a.status.slice(1).toLowerCase() : null;
+	const details: [string, string | null][] = [
+		['Format', a.format], ['Episodes', a.episodes ? String(a.episodes) : null],
+		['Duration', a.duration ? `${a.duration} min` : null],
+		['Status', statusLabel],
+		['Aired', a.aired], ['Season', a.season && a.year ? `${a.season} ${a.year}` : null],
+		['Source', a.source], ['Studio', a.studio], ['Popularity', num(a.popularity)], ['Favourites', num(a.favourites)]
+	];
+	const detailRows = details.filter(([, v]) => v) as [string, string][];
+	const metaItems = [a.format, a.episodes ? `${a.episodes} eps` : null, a.aired, a.studio].filter(Boolean) as string[];
+
+	const jsonLd = {
+		'@context': 'https://schema.org', '@type': 'TVSeries', name: a.title,
+		...(a.english ? { alternateName: a.english } : {}),
+		...(a.description ? { description: a.description.slice(0, 280) } : {}),
+		...(a.cover ? { image: a.cover } : {}),
+		...(a.score ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: (a.score / 10).toFixed(1), bestRating: 10, ratingCount: a.favourites ?? 1 } } : {}),
+		genre: a.genres
+	};
+	const alt = [a.english, a.native].filter((x) => x && x !== a.title).join('  ·  ');
+</script>
+
+<svelte:head>
+	<title>{a.title} — where to watch & next episode | Watchdex</title>
+	<meta name="description" content={a.description?.slice(0, 155) ?? `When ${a.title} airs next and where to watch it.`} />
+	{@html `<script type="application/ld+json">${JSON.stringify(jsonLd)}<\/script>`}
+</svelte:head>
+
+<section class="hero">
+	{#if a.banner}
+		<div class="banner">
+			<img src={a.banner} alt="" width="1280" height="320" fetchpriority="high" />
+			<div class="banner-bar"><div class="wrap"><a class="back over" href="/">&larr; Schedule</a></div></div>
+		</div>
+	{:else}
+		<div class="wrap topbar"><a class="back" href="/">&larr; Schedule</a></div>
+	{/if}
+	<div class="wrap hero-in" class:pull={a.banner}>
+		<div class="poster"><img src={a.cover} alt={a.title} width="220" height="311" /></div>
+		<div class="head">
+			<h1 class="h1">{a.title}</h1>
+			{#if alt}<p class="alt">{alt}</p>{/if}
+			<p class="metaline">
+				{#if a.score}<span class="score" class:hi={a.score >= 75}>{a.score}%</span>{/if}
+				{#each metaItems as m}<span class="m">{m}</span>{/each}
+			</p>
+			<div class="chips">
+				{#each a.genres as g}<span class="chip chip-accent">{g}</span>{/each}
+				{#each a.tags.slice(0, 4) as t}<span class="chip">{t}</span>{/each}
+			</div>
+		</div>
+	</div>
+</section>
+
+<div class="wrap body">
+	<main class="content">
+		{#if a.nextEp}
+			<div class="next-card">
+				<span class="eyebrow">Next episode</span>
+				<p class="next-line"><span class="ep mono">EP {a.nextEp.episode}</span> <span class="in">airs in</span> <Countdown airAt={a.nextEp.airingAt} class="big" /></p>
+			</div>
+		{/if}
+
+		{#if a.description}
+			<section class="sec"><h2 class="sec-h">Synopsis</h2><p class="desc">{a.description}</p></section>
+		{/if}
+
+		{#if a.characters.length > 0}
+			<section class="sec">
+				<h2 class="sec-h">Characters &amp; cast</h2>
+				<div class="chars">
+					{#each a.characters as c}
+						<div class="char">
+							<span class="cside"><img class="cim" src={c.image} alt="" loading="lazy" width="36" height="50" /><span class="cinfo"><span class="cname">{c.name}</span><span class="crole">{c.role}</span></span></span>
+							{#if c.va}<span class="vside"><span class="vname">{c.va}</span>{#if c.vaImage}<img class="vim" src={c.vaImage} alt="" loading="lazy" width="36" height="50" />{/if}</span>{/if}
+						</div>
+					{/each}
+				</div>
+			</section>
+		{/if}
+
+		{#if a.relations.length > 0}
+			<section class="sec"><h2 class="sec-h">Related</h2><div class="mini-grid">{#each a.relations as m (m.id)}<MiniCard {m} internal={known.has(m.slug)} />{/each}</div></section>
+		{/if}
+
+		{#if a.recommendations.length > 0}
+			<section class="sec"><h2 class="sec-h">You might also like</h2><div class="mini-grid">{#each a.recommendations as m (m.id)}<MiniCard {m} internal={known.has(m.slug)} />{/each}</div></section>
+		{/if}
+	</main>
+
+	<aside class="side">
+		<section class="panel">
+			<span class="eyebrow">Details</span>
+			<dl class="dl">{#each detailRows as [k, v]}<div class="dl-row"><dt>{k}</dt><dd>{v}</dd></div>{/each}</dl>
+		</section>
+		<section class="panel">
+			<span class="eyebrow">Where to watch</span>
+			{#if a.streams.length > 0}
+				<div class="watch">{#each a.streams as s}<a class="prov" href={s.url} rel="nofollow noopener" target="_blank">{s.site} &rarr;</a>{/each}</div>
+			{:else}
+				<p class="nostream">No streaming links yet.</p>
+			{/if}
+		</section>
+	</aside>
+</div>
+
+<style>
+	.hero { padding-bottom: 2.5rem; }
+	.banner { position: relative; height: 300px; overflow: hidden; }
+	.banner img { width: 100%; height: 100%; object-fit: cover; }
+	.banner::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, transparent 45%, var(--bg) 98%); }
+	.banner-bar { position: absolute; top: 1rem; inset-inline: 0; z-index: 2; }
+	.topbar { padding-top: 1.25rem; }
+	.back { display: inline-block; color: var(--muted); font-size: var(--t-sm); }
+	.back:hover { color: var(--accent); }
+	.back.over { color: #fff; background: rgba(15,18,25,.42); backdrop-filter: blur(8px); padding: 0.4rem 0.85rem; border-radius: 999px; }
+	.back.over:hover { background: rgba(15,18,25,.62); color: #fff; }
+	.hero-in { display: flex; gap: 2.25rem; align-items: flex-end; }
+	.hero-in:not(.pull) { margin-top: 1.5rem; }
+	.hero-in.pull { margin-top: -130px; position: relative; z-index: 1; }
+	.poster { width: 11rem; flex: none; aspect-ratio: 23/32; border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+	.poster img { width: 100%; height: 100%; object-fit: cover; }
+	.head { min-width: 0; padding-bottom: 0.4rem; }
+	.h1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
+	.alt { color: var(--muted); margin-top: 0.45rem; font-size: var(--t-sm); }
+	.metaline { display: flex; align-items: center; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.9rem; font-size: var(--t-sm); color: var(--muted); }
+	.m + .m::before, .score + .m::before { content: '·'; color: var(--faint); margin-right: 0.55rem; }
+	.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.85rem; }
+
+	.body { display: grid; grid-template-columns: 1fr 16rem; gap: 2.75rem; align-items: start; }
+	.next-card { background: var(--accent-soft); border-radius: var(--r); padding: 1.1rem 1.3rem; margin-bottom: 2.25rem; }
+	.next-line { display: flex; align-items: baseline; gap: 0.55rem; margin-top: 0.5rem; font-size: var(--t-lg); }
+	.next-line .ep { font-weight: 700; }
+	.next-line .in { color: var(--muted); font-size: var(--t-md); }
+	.next-line :global(.cd-num.big) { color: var(--accent); font-weight: 700; min-width: 6ch; }
+
+	.sec { margin-bottom: 2.5rem; }
+	.sec-h { font-family: var(--font-display); font-size: var(--t-md); font-weight: 700; letter-spacing: -0.01em; margin-bottom: 1.1rem; }
+	.desc { color: var(--muted); line-height: 1.8; max-width: 70ch; }
+
+	.chars { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+	.char { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: var(--bg-soft); border-radius: var(--r-sm); padding: 0.5rem 0.6rem; overflow: hidden; }
+	.cside, .vside { display: flex; align-items: center; gap: 0.55rem; min-width: 0; flex: 1; }
+	.vside { flex-direction: row-reverse; text-align: right; }
+	.vside:empty { display: none; }
+	.cim, .vim { width: 2.1rem; height: 2.9rem; border-radius: 5px; object-fit: cover; flex: none; }
+	.cinfo { display: flex; flex-direction: column; min-width: 0; }
+	.cname, .vname { font-size: var(--t-xs); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.crole { font-size: 0.66rem; color: var(--faint); }
+
+	.mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 1.1rem 0.85rem; }
+
+	.side { display: flex; flex-direction: column; gap: 1.75rem; position: sticky; top: 5.25rem; }
+	.panel .eyebrow { display: block; margin-bottom: 0.8rem; }
+	.dl-row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.48rem 0; border-bottom: 1px solid var(--line); font-size: var(--t-sm); }
+	.dl-row:last-child { border-bottom: 0; }
+	.dl-row dt { color: var(--muted); }
+	.dl-row dd { font-weight: 500; text-align: right; }
+	.watch { display: flex; flex-direction: column; gap: 0.45rem; }
+	.prov { background: var(--bg-soft); border-radius: var(--r-sm); padding: 0.55rem 0.85rem; font-size: var(--t-sm); font-weight: 500; transition: background .15s, color .15s; }
+	.prov:hover { background: var(--accent-soft); color: var(--accent); }
+	.nostream { color: var(--faint); font-size: var(--t-sm); }
+
+	@media (max-width: 820px) {
+		.body { grid-template-columns: 1fr; gap: 2rem; }
+		.side { position: static; flex-direction: row; flex-wrap: wrap; }
+		.side .panel { flex: 1; min-width: 13rem; }
+	}
+	@media (max-width: 560px) {
+		.banner { height: 190px; }
+		.hero-in.pull { margin-top: -80px; }
+		.hero-in { gap: 1.1rem; }
+		.poster { width: 6.5rem; }
+		.h1 { font-size: var(--t-xl); }
+		.chars { grid-template-columns: 1fr; }
+	}
+</style>
