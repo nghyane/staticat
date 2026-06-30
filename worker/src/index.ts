@@ -4,7 +4,7 @@
 // idempotent rev via hash, immutable meta.v{rev} first, head pointer last —
 // but writes via the R2 binding (no S3 creds). GitHub Actions is the default;
 // keep this only if you set up a relay.
-import { fetchAniList } from '../../ingest/lib/anilist.js';
+import { fetchAniList, fetchPopular } from '../../ingest/lib/anilist.js';
 import { paths, hash, buildEntities, buildListings } from '../../ingest/lib/contract.js';
 
 interface R2Bucket {
@@ -12,7 +12,7 @@ interface R2Bucket {
 	put(key: string, value: string, opts?: { httpMetadata?: { contentType?: string; cacheControl?: string } }): Promise<unknown>;
 	delete(key: string): Promise<unknown>;
 }
-interface Env { DATA: R2Bucket; PAGES?: string; INGEST_SECRET?: string; RELAY_URL?: string }
+interface Env { DATA: R2Bucket; AIRING_PAGES?: string; POPULAR_PAGES?: string; INGEST_SECRET?: string; RELAY_URL?: string }
 
 const POINTER = 'public, max-age=30, stale-while-revalidate=300, stale-if-error=86400';
 const POPULAR = 'public, max-age=300, stale-while-revalidate=3600';
@@ -27,9 +27,10 @@ const cacheFor = (k: string) =>
 const key = (p: string) => p.replace(/^\//, '');
 
 async function ingest(env: Env): Promise<{ titles: number; changed: number }> {
-	const pages = Number(env.PAGES ?? 3);
+	const air = Number(env.AIRING_PAGES ?? 3), pop = Number(env.POPULAR_PAGES ?? 4);
 	let seed: any[] = [];
-	for (let p = 1; p <= pages; p++) seed.push(...(await fetchAniList(50, p, env.RELAY_URL ?? '')));
+	for (let p = 1; p <= air; p++) seed.push(...(await fetchAniList(50, p, env.RELAY_URL ?? '')));
+	for (let p = 1; p <= pop; p++) seed.push(...(await fetchPopular(50, p, env.RELAY_URL ?? '')));
 	seed = [...new Map(seed.map((e) => [e.id, e])).values()];
 
 	const entities = buildEntities(seed);

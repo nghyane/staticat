@@ -8,7 +8,8 @@ compatibility_date = "2026-06-19"
 crons = ["0 */6 * * *"]
 
 [vars]
-PAGES = "3" # 50 titles/page of currently-airing
+AIRING_PAGES = "3"  # 50/page currently-airing → feed/calendar
+POPULAR_PAGES = "4" # 50/page top popular → catalog depth (related resolves)
 
 # The SPA reads this bucket via its custom domain (PUBLIC_DATA_BASE); the worker
 # writes /v1/**. Create once:  wrangler r2 bucket create watchdex-data

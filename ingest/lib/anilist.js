@@ -4,31 +4,30 @@
 const ENDPOINT = 'https://graphql.anilist.co';
 
 const MINI = `id type title { romaji english } coverImage { medium }`;
-const QUERY = `
-query ($perPage: Int, $page: Int) {
-  Page(page: $page, perPage: $perPage) {
-    media(type: ANIME, sort: TRENDING_DESC, status_in: [RELEASING], isAdult: false) {
-      id idMal
-      title { romaji english native }
-      synonyms
-      description(asHtml: false)
-      coverImage { large color } bannerImage
-      averageScore popularity favourites
-      format episodes duration status source season seasonYear
-      startDate { year month day }
-      genres
-      tags { name rank isMediaSpoiler }
-      studios { edges { isMain node { name } } }
-      nextAiringEpisode { episode airingAt }
-      externalLinks { site url type }
-      relations { edges { relationType node { ${MINI} } } }
-      recommendations(sort: RATING_DESC, perPage: 6) { nodes { mediaRecommendation { ${MINI} } } }
-      characters(sort: [ROLE, RELEVANCE], perPage: 8) {
-        edges { role node { name { full } image { medium } } voiceActors(language: JAPANESE, sort: RELEVANCE) { name { full } image { medium } } }
-      }
-    }
-  }
-}`;
+const FIELDS = `
+  id idMal
+  title { romaji english native }
+  synonyms
+  description(asHtml: false)
+  coverImage { large color } bannerImage
+  averageScore popularity favourites
+  format episodes duration status source season seasonYear
+  startDate { year month day }
+  genres
+  tags { name rank isMediaSpoiler }
+  studios { edges { isMain node { name } } }
+  nextAiringEpisode { episode airingAt }
+  externalLinks { site url type }
+  relations { edges { relationType node { ${MINI} } } }
+  recommendations(sort: RATING_DESC, perPage: 6) { nodes { mediaRecommendation { ${MINI} } } }
+  characters(sort: [ROLE, RELEVANCE], perPage: 8) {
+    edges { role node { name { full } image { medium } } voiceActors(language: JAPANESE, sort: RELEVANCE) { name { full } image { medium } } }
+  }`;
+const pageQuery = (selector) => `query ($perPage: Int, $page: Int) { Page(page: $page, perPage: $perPage) { media(${selector}) { ${FIELDS} } } }`;
+// Airing (drives feed/calendar) + popular (catalog depth so related/recs
+// resolve internally — the refs point at finished titles).
+const QUERY = pageQuery('type: ANIME, sort: TRENDING_DESC, status_in: [RELEASING], isAdult: false');
+const POPULAR = pageQuery('type: ANIME, sort: POPULARITY_DESC, isAdult: false');
 
 const FORMAT = { TV: 'TV', TV_SHORT: 'TV Short', MOVIE: 'Movie', OVA: 'OVA', ONA: 'ONA', SPECIAL: 'Special', MUSIC: 'Music' };
 const STATUS = { RELEASING: 'airing', FINISHED: 'finished', NOT_YET_RELEASED: 'upcoming', CANCELLED: 'cancelled', HIATUS: 'airing' };
@@ -100,5 +99,12 @@ async function gql(query, variables, relayUrl) {
 
 export async function fetchAniList(perPage = 30, page = 1, relayUrl = '') {
 	const json = await gql(QUERY, { perPage, page }, relayUrl);
+	return (json?.data?.Page?.media ?? []).map(mapEntity);
+}
+
+/** Top popular across all statuses — adds catalog depth so related/recs (which
+ *  point at finished titles) resolve internally. */
+export async function fetchPopular(perPage = 30, page = 1, relayUrl = '') {
+	const json = await gql(POPULAR, { perPage, page }, relayUrl);
 	return (json?.data?.Page?.media ?? []).map(mapEntity);
 }

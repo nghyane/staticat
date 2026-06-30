@@ -8,10 +8,10 @@
 //
 // Env: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, PAGES
 import { AwsClient } from 'aws4fetch';
-import { fetchAniList } from './lib/anilist.js';
+import { fetchAniList, fetchPopular } from './lib/anilist.js';
 import { paths, hash, buildEntities, buildListings } from './lib/contract.js';
 
-const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET = 'watchdex-data', PAGES = '3' } = process.env;
+const { R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET = 'watchdex-data', AIRING_PAGES = '3', POPULAR_PAGES = '4' } = process.env;
 const BASE = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${R2_BUCKET}`;
 const aws = new AwsClient({ accessKeyId: R2_ACCESS_KEY_ID, secretAccessKey: R2_SECRET_ACCESS_KEY });
 
@@ -33,9 +33,10 @@ const r2del = (k) => aws.fetch(`${BASE}/${k}`, { method: 'DELETE' });
 const chunked = async (items, fn, size = 20) => { for (let i = 0; i < items.length; i += size) await Promise.all(items.slice(i, i + size).map(fn)); };
 const now = Math.floor(Date.now() / 1000);
 
-// 1. snapshot + derive
+// 1. snapshot (airing → feed/calendar; popular → catalog depth) + derive
 let seed = [];
-for (let p = 1; p <= Number(PAGES); p++) seed.push(...(await fetchAniList(50, p)));
+for (let p = 1; p <= Number(AIRING_PAGES); p++) seed.push(...(await fetchAniList(50, p)));
+for (let p = 1; p <= Number(POPULAR_PAGES); p++) seed.push(...(await fetchPopular(50, p)));
 seed = [...new Map(seed.map((e) => [e.id, e])).values()];
 const entities = buildEntities(seed);
 const { pointers, calendars, searchIndex } = buildListings(seed);
