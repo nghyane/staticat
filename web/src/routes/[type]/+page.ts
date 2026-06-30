@@ -1,4 +1,5 @@
 import { loadSearch } from '$lib/catalog';
+import { topGenres } from '$lib/genres';
 import { isKind } from '$lib/types';
 import { error, redirect } from '@sveltejs/kit';
 import type { EntryGenerator, PageLoad } from './$types';
@@ -17,10 +18,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
 	// Data-light prerender: bake only the stable genre nav (SEO skeleton). The
 	// card grids are fetched fresh client-side, so data updates need no rebuild.
 	const items = (await loadSearch(fetch)).filter((e) => e.kind === params.type);
-	const counts = new Map<string, number>();
-	for (const e of items) for (const g of e.genres) counts.set(g, (counts.get(g) ?? 0) + 1);
-	const genres = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([g]) => g);
 	// gate on item count, not genres — some kinds (e.g. games) have entries with
 	// no genre metadata but must still render their grid.
-	return { kind: params.type, genres, count: items.length };
+	return { kind: params.type, genres: topGenres(items), count: items.length };
 };

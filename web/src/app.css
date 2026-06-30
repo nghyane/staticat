@@ -70,3 +70,10 @@ img { display: block; }
 }
 .section-h a { font-size: var(--t-sm); color: var(--muted); }
 .section-h a:hover { color: var(--accent); }
+
+/* poster card grids — shared across home, browse, genre and search */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 1.9rem 1.2rem; }
+.mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 1.1rem 0.85rem; }
+@media (max-width: 560px) {
+	.card-grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 1.4rem 0.8rem; }
+}

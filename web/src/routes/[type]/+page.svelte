@@ -1,8 +1,9 @@
 <script lang="ts">
 	import BrowseLanding from '$lib/components/BrowseLanding.svelte';
+	import { KIND_LABEL } from '$lib/kinds';
 	import type { PageData } from './$types';
 	let { data }: { data: PageData } = $props();
-	const label = $derived(data.kind[0].toUpperCase() + data.kind.slice(1));
+	const label = $derived(KIND_LABEL[data.kind]);
 </script>
 
 {#if data.count > 0}

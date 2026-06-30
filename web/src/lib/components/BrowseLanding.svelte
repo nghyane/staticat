@@ -2,6 +2,7 @@
 	import { createQuery } from '@tanstack/svelte-query';
 	import MediaCard from './MediaCard.svelte';
 	import { catalogQuery } from '$lib/data';
+	import { KIND_COPY } from '$lib/kinds';
 	import { slugifyGenre, type Kind } from '$lib/types';
 	import { SITE } from '$lib/site';
 
@@ -16,15 +17,7 @@
 	const q = createQuery(() => catalogQuery(kind));
 	const items = $derived(q.data ?? []);
 
-	// per-kind copy — distinct keywords/intent (anti-thin-content, SEO)
-	const COPY: Record<string, { eyebrow: string; h1: string; intro: string }> = {
-		anime: { eyebrow: 'Anime', h1: 'Anime — airing schedule & where to watch', intro: 'Top-rated anime by genre, with live episode countdowns, scores and streaming.' },
-		manga: { eyebrow: 'Manga', h1: 'Manga — top series & where to read', intro: 'Browse manga by genre — chapters, volumes, authors and publication status, ranked by score.' },
-		movie: { eyebrow: 'Movies', h1: 'Movies — top-rated films & where to watch', intro: 'Browse films by genre with IMDb ratings, runtime, cast and director.' },
-		game: { eyebrow: 'Games', h1: 'Games — top PC titles & where to buy', intro: 'Browse games by genre — Metacritic scores, platforms, screenshots and Steam links.' },
-		tv: { eyebrow: 'TV', h1: 'TV series — top shows & where to watch', intro: 'Browse series by genre with ratings, seasons and cast.' }
-	};
-	const c = $derived(COPY[kind] ?? COPY.anime);
+	const c = $derived(KIND_COPY[kind]);
 
 	const byRating = $derived([...items].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)));
 	const genreRows = $derived(
@@ -62,21 +55,21 @@
 	{#if byRating.length > 0}
 		<section class="block">
 			<header class="section-h"><h2>Top rated</h2></header>
-			<div class="grid">{#each byRating.slice(0, 18) as a (a.id)}<MediaCard {a} />{/each}</div>
+			<div class="card-grid">{#each byRating.slice(0, 18) as a (a.id)}<MediaCard {a} />{/each}</div>
 		</section>
 	{/if}
 
 	{#each genreRows as row (row.g)}
 		<section class="block">
 			<header class="section-h"><h2>{row.g}</h2><a href={`/genre/${slugifyGenre(row.g)}`}>See all &rarr;</a></header>
-			<div class="grid">{#each row.list as a (a.id)}<MediaCard {a} />{/each}</div>
+			<div class="card-grid">{#each row.list as a (a.id)}<MediaCard {a} />{/each}</div>
 		</section>
 	{/each}
 
 	{#if recent.length >= 4}
 		<section class="block">
 			<header class="section-h"><h2>Recently released</h2></header>
-			<div class="grid">{#each recent as a (a.id)}<MediaCard {a} />{/each}</div>
+			<div class="card-grid">{#each recent as a (a.id)}<MediaCard {a} />{/each}</div>
 		</section>
 	{/if}
 </div>
@@ -88,6 +81,4 @@
 	.intro { color: var(--muted); margin-top: 0.85rem; font-size: var(--t-md); }
 	.genres { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1.25rem; }
 	.block { margin-top: 3rem; }
-	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 1.9rem 1.2rem; }
-	@media (max-width: 560px) { .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 1.4rem 0.8rem; } }
 </style>

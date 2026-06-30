@@ -2,13 +2,13 @@
 	import BrowseGrid from '$lib/components/BrowseGrid.svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { genreQuery } from '$lib/data';
+	import { KIND_NOUN } from '$lib/kinds';
 	import { SITE } from '$lib/site';
 	import type { PageData } from './$types';
 	let { data }: { data: PageData } = $props();
 
 	// genres span every vertical — name the kinds actually present (baked at build)
-	const KIND_LABEL: Record<string, string> = { anime: 'anime', manga: 'manga', movie: 'movies', tv: 'TV series', game: 'games' };
-	const kinds = $derived(data.kinds.map((k) => KIND_LABEL[k] ?? k));
+	const kinds = $derived(data.kinds.map((k) => KIND_NOUN[k as keyof typeof KIND_NOUN] ?? k));
 	const kindList = $derived(kinds.length > 1 ? `${kinds.slice(0, -1).join(', ')} and ${kinds.at(-1)}` : (kinds[0] ?? 'titles'));
 	const canonical = $derived(`${SITE}/genre/${data.slug}`);
 	const title = $derived(`${data.name} — top ${kindList} | Watchdex`);

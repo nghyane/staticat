@@ -1,5 +1,6 @@
 import { loadSearch } from '$lib/catalog';
-import { numOf, slugifyGenre } from '$lib/types';
+import { genreNames } from '$lib/genres';
+import { numOf } from '$lib/types';
 import { SITE } from '$lib/site';
 import type { RequestHandler } from './$types';
 
@@ -12,13 +13,10 @@ const xml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
 export const GET: RequestHandler = async () => {
 	const index = await loadSearch();
-	const genres = new Set<string>();
-	for (const e of index) for (const g of e.genres) genres.add(slugifyGenre(g));
-
 	const urls = [
 		`${SITE}/`,
 		...['manga', 'movie', 'tv', 'game'].map((k) => `${SITE}/${k}`),
-		...[...genres].map((s) => `${SITE}/genre/${s}`),
+		...[...genreNames(index).keys()].map((s) => `${SITE}/genre/${s}`),
 		...index.map((e) => `${SITE}/${e.kind}/${numOf(e.id)}`)
 	];
 

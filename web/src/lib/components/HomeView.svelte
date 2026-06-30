@@ -4,13 +4,14 @@
 	import MediaCard from './MediaCard.svelte';
 	import { createQuery } from '@tanstack/svelte-query';
 	import { catalogQuery, feedQuery, popularQuery } from '$lib/data';
+	import { KIND_LABEL } from '$lib/kinds';
 	import { slugifyGenre, type Kind } from '$lib/types';
 
 	// `genres` is the stable SEO skeleton (prerendered nav links). The hero and
 	// card grids are volatile, so they're declared as queries — fetched fresh
 	// from R2 on the client, never baked into the prerendered HTML.
 	let { kind, genres }: { kind: Kind; genres: string[] } = $props();
-	const label = $derived(kind[0].toUpperCase() + kind.slice(1));
+	const label = $derived(KIND_LABEL[kind]);
 
 	const feedQ = createQuery(() => feedQuery());
 	const popularQ = createQuery(() => popularQuery());
@@ -56,14 +57,14 @@
 	{#if trending.length > 0}
 		<section class="block">
 			<header class="section-h"><h2>Trending</h2></header>
-			<div class="grid">{#each trending as a (a.id)}<MediaCard {a} />{/each}</div>
+			<div class="card-grid">{#each trending as a (a.id)}<MediaCard {a} />{/each}</div>
 		</section>
 	{/if}
 
 	{#each genreRows as row (row.g)}
 		<section class="block">
 			<header class="section-h"><h2>{row.g}</h2><a href={`/genre/${slugifyGenre(row.g)}`}>See all &rarr;</a></header>
-			<div class="grid">{#each row.list as a (a.id)}<MediaCard {a} />{/each}</div>
+			<div class="card-grid">{#each row.list as a (a.id)}<MediaCard {a} />{/each}</div>
 		</section>
 	{/each}
 </div>
@@ -72,8 +73,6 @@
 	.genres { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 1rem; }
 	.block { margin-top: 3.5rem; }
 	.rows { display: flex; flex-direction: column; }
-	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 1.9rem 1.2rem; }
-	@media (max-width: 560px) { .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 1.4rem 0.8rem; } }
 
 	.intro { padding-block: 4rem 0.5rem; max-width: 40rem; }
 	.intro h1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.03em; margin-top: 0.5rem; line-height: 1.08; }

@@ -1,5 +1,6 @@
 import { loadSearch } from '$lib/catalog';
-import { numOf, slugifyGenre, type CatalogEntry, type Kind } from '$lib/types';
+import { genreNames } from '$lib/genres';
+import { numOf, type CatalogEntry, type Kind } from '$lib/types';
 import { SITE } from '$lib/site';
 import type { RequestHandler } from './$types';
 
@@ -20,13 +21,8 @@ const KINDS: { kind: Kind; label: string; blurb: string; href: string }[] = [
 export const GET: RequestHandler = async () => {
 	const index = await loadSearch();
 
-	// genre slug -> display name (first seen), alphabetical
-	const genreName = new Map<string, string>();
-	for (const e of index) for (const g of e.genres) {
-		const s = slugifyGenre(g);
-		if (!genreName.has(s)) genreName.set(s, g);
-	}
-	const genres = [...genreName.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+	// genre slug -> display name, alphabetical
+	const genres = [...genreNames(index).entries()].sort((a, b) => a[1].localeCompare(b[1]));
 
 	const line = (e: CatalogEntry) => {
 		const meta = [e.year, e.genres.slice(0, 3).join('/'), e.rating != null ? `${e.rating}%` : null]

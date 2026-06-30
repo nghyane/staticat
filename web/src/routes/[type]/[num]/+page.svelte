@@ -271,7 +271,6 @@
 	.cname, .vname { font-size: var(--t-xs); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.crole { font-size: 0.66rem; color: var(--faint); }
 
-	.mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 1.1rem 0.85rem; }
 
 	/* game screenshots (landscape gallery) */
 	.shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }

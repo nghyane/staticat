@@ -124,7 +124,7 @@
 	</div>
 
 	{#if total > 0}
-		<div class="grid">{#each shown as a (a.id)}<MediaCard {a} />{/each}</div>
+		<div class="card-grid">{#each shown as a (a.id)}<MediaCard {a} />{/each}</div>
 
 		{#if pages > 1}
 			<nav class="pager" aria-label="Pagination">
@@ -156,8 +156,7 @@
 	.seg.on { background: var(--bg); color: var(--ink); font-weight: 600; box-shadow: var(--shadow); }
 	.count { margin-left: auto; font-size: var(--t-sm); color: var(--faint); }
 
-	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 1.9rem 1.2rem; }
-	@media (max-width: 560px) { .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 1.4rem 0.8rem; } .count { margin-left: 0; width: 100%; } }
+	@media (max-width: 560px) { .count { margin-left: 0; width: 100%; } }
 	.empty { color: var(--muted); padding: 4rem 0; text-align: center; }
 
 	.pager { display: flex; align-items: center; justify-content: center; gap: 0.3rem; margin: 3rem 0 1rem; }
