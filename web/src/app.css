@@ -60,6 +60,15 @@ img { display: block; }
 }
 .score.hi { background: var(--live); }
 
+/* page transitions — soft cross-fade so instant client nav still reads as a
+   navigation. The incoming page also rises a touch so content "arrives". */
+@media (prefers-reduced-motion: no-preference) {
+	::view-transition-old(root) { animation: vt-out 0.16s ease both; }
+	::view-transition-new(root) { animation: vt-in 0.22s ease both; }
+}
+@keyframes vt-out { to { opacity: 0; } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(6px); } }
+
 /* section header used across pages */
 .section-h {
 	display: flex; align-items: baseline; justify-content: space-between; gap: 1rem;
