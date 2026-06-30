@@ -1,55 +1,68 @@
-// Mirror of contract/discovery.ts (the producer/consumer contract). The SPA
-// reads ONLY these shapes from R2 — no third-party API on the read path.
-export type Kind = 'anime' | 'movie' | 'game';
-export const KINDS: readonly Kind[] = ['anime', 'movie', 'game'] as const;
+// Mirror of contract/discovery.ts. The SPA reads ONLY these shapes from R2.
+export type Kind = 'anime' | 'movie' | 'tv' | 'game';
+export const KINDS: readonly Kind[] = ['anime', 'movie', 'tv', 'game'] as const;
 export const isKind = (s: string): s is Kind => (KINDS as readonly string[]).includes(s);
+export type Status = 'airing' | 'upcoming' | 'finished' | 'cancelled' | 'unknown';
 
-export type Status = 'airing' | 'upcoming' | 'finished' | 'released' | 'cancelled' | 'unknown';
+export type BlobToken = string; // "src:<url>" | "r2:<key>" | …
+/** Resolve a blob token to a URL. src: is a hotlinked source CDN URL. */
+export const blob = (t: BlobToken | null | undefined): string => (!t ? '' : t.startsWith('src:') ? t.slice(4) : t);
 
-/** Unified "when": anime {EP 14} · movie {Premiere} · game {Launch}. */
-export interface Next { label: string; at: number }
+export const numOf = (id: string): string => id.slice(id.indexOf(':') + 1);
+export const kindOf = (id: string): Kind => id.slice(0, id.indexOf(':')) as Kind;
 
-/** Lite card — home/catalog/search/facets. Carries facet fields for in-place filtering. */
-export interface Card {
-	kind: Kind;
+export interface Schedule { nextEp: number | null; airAt: number | null }
+export interface Availability { provider: string; region: string; kind: string; url: string }
+export interface Character { name: string; image: BlobToken; role: string; va: string | null; vaImage: BlobToken | null }
+export type Details =
+	| { kind: 'anime'; format: string | null; episodes: number | null; duration: number | null; studio: string | null; source: string | null; season: string | null; aired: string | null }
+	| { kind: 'movie'; runtime: number | null; director: string | null }
+	| { kind: 'tv'; seasons: number | null }
+	| { kind: 'game'; platforms: string[]; developer: string | null };
+
+/** /v1/entity/{kind}/{num}/head.json — pointer */
+export interface EntityHead { id: string; rev: number; updatedAt: number; hash: string }
+
+/** /v1/entity/{kind}/{num}/meta.v{rev}.json — immutable, full record */
+export interface EntityMeta {
+	rev: number;
 	id: string;
-	slug: string;
+	kind: Kind;
 	title: string;
-	cover: string;
+	alt: string[];
+	native: string | null;
+	year: number | null;
+	cover: BlobToken;
+	banner: BlobToken | null;
 	color: string | null;
-	score: number | null;
+	genres: string[];
+	tags: string[];
+	status: Status;
+	rating: number | null;
+	ids: { anilist?: number; mal?: number; tmdb?: number };
+	desc: string | null;
+	availability: Availability[];
+	schedule: Schedule | null;
+	valueAdd: { related: string[]; recommendations: string[] };
+	characters: Character[];
+	details: Details;
+}
+
+/** Denormalized card for every listing (feed/genre/status/search/calendar). */
+export interface CatalogEntry {
+	id: string;
+	kind: Kind;
+	title: string;
+	cover: BlobToken;
 	year: number | null;
 	status: Status;
 	genres: string[];
-	meta: string;
-	next: Next | null;
+	rating: number | null;
+	alt?: string[];
+	schedule?: Schedule | null;
 }
 
-/** Minimal thumbnail for recs/relations. */
-export interface Ref { kind: Kind; id: string; slug: string; title: string; cover: string; meta: string | null }
-export interface Related extends Ref { relation: string }
+export interface SearchHead { ver: number; hash: string }
 
-export interface Stream { site: string; url: string }
-export interface Character { name: string; image: string; role: string; va: string | null; vaImage: string | null }
-
-export interface AnimeDetails { kind: 'anime'; format: string | null; episodes: number | null; duration: number | null; studios: string[]; studio: string | null; source: string | null; season: string | null; aired: string | null }
-export interface MovieDetails { kind: 'movie'; runtime: number | null; director: string | null; cast: string[]; studios: string[]; released: string | null }
-export interface GameDetails { kind: 'game'; platforms: string[]; developer: string | null; publisher: string | null; modes: string[]; released: string | null }
-export type Details = AnimeDetails | MovieDetails | GameDetails;
-
-/** Rich entity — detail page. */
-export interface Entity extends Card {
-	english: string | null; native: string | null; synonyms: string[];
-	description: string | null; banner: string | null;
-	popularity: number | null; favourites: number | null;
-	tags: string[];
-	details: Details;
-	streams: Stream[];
-	related: Related[];
-	recommendations: Ref[];
-	characters: Character[];
-}
-
-export interface Manifest { schema: 'v1'; buildAt: number; verticals: Kind[] }
-export interface Index { kind: Kind; dataVersion: string; updatedAt: number; counts: { total: number; airing: number }; facets: string[] }
-export interface Home { kind: Kind; season: string; airingCount: number; featured: Card | null; airing: Card[]; trending: Card[] }
+/** Small display meta for a card (CatalogEntry carries no precomputed string). */
+export const cardMeta = (e: CatalogEntry): string => [e.year, e.genres[0]].filter(Boolean).join(' · ');

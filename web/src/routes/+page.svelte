@@ -9,4 +9,4 @@
 	<meta name="description" content="When the next episode airs and where to watch it. Updated every day." />
 </svelte:head>
 
-<HomeView home={data.home} />
+<HomeView kind="anime" feed={data.feed} popular={data.popular} />

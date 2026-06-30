@@ -5,11 +5,11 @@
 
 export const SCHEMA = 'v1';
 const P = `/${SCHEMA}`;
-const enc = encodeURIComponent;
+const idPath = (id) => id.replace(':', '/'); // "anime:21" → "anime/21"
 
 export const paths = {
-	entityHead: (id) => `${P}/entity/${enc(id)}/head.json`,
-	entityMeta: (id, rev) => `${P}/entity/${enc(id)}/meta.v${rev}.json`,
+	entityHead: (id) => `${P}/entity/${idPath(id)}/head.json`,
+	entityMeta: (id, rev) => `${P}/entity/${idPath(id)}/meta.v${rev}.json`,
 	feedLatest: (page) => `${P}/feed/latest/${page}.json`,
 	feedPopular: (period) => `${P}/feed/popular/${period}.json`,
 	calendar: (week) => `${P}/calendar/${week}.json`,

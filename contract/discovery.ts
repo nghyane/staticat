@@ -95,9 +95,12 @@ export function toCatalogEntry(m: EntityMeta): CatalogEntry {
 export interface SearchHead { ver: number }
 
 // ── Path builders (1 NGUỒN CHÂN LÝ) ─────────────────────────────────────────
+// id "{kind}:{num}" → path "/entity/{kind}/{num}/…" (no ':' in keys → no
+// encoding pitfalls; readable; R2/CDN friendly).
+const idPath = (id: string) => id.replace(':', '/');
 export const paths = {
-	entityHead: (id: string) => `${P}/entity/${enc(id)}/head.json`,
-	entityMeta: (id: string, rev: number) => `${P}/entity/${enc(id)}/meta.v${rev}.json`,
+	entityHead: (id: string) => `${P}/entity/${idPath(id)}/head.json`,
+	entityMeta: (id: string, rev: number) => `${P}/entity/${idPath(id)}/meta.v${rev}.json`,
 	feedLatest: (page: number) => `${P}/feed/latest/${page}.json`,
 	feedPopular: (period: 'day' | 'week' | 'all') => `${P}/feed/popular/${period}.json`,
 	genre: (slug: string, page: number) => `${P}/genre/${slug}/${page}.json`,

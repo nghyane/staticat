@@ -1,38 +1,52 @@
-// Read path: fetch the contract from R2. In prod the SPA hits the R2 custom
-// domain directly (PUBLIC_DATA_BASE) — zero-function, CDN-cached, and data
-// updates land with no rebuild. In dev PUBLIC_DATA_BASE is unset → same-origin
-// /v1 served from static/. Mirrors contract/discovery.ts.
+// Read path: fetch the contract from R2 (PUBLIC_DATA_BASE in prod; same-origin
+// /v1 in dev). Mirrors contract/discovery.ts. Session-cached.
 import { env } from '$env/dynamic/public';
-import type { Home, Entity, Kind } from './types';
+import type { CatalogEntry, EntityMeta, EntityHead, SearchHead } from './types';
 
 const BASE = (env.PUBLIC_DATA_BASE ?? '').replace(/\/$/, '');
+const idPath = (id: string) => id.replace(':', '/');
 
-// Session caches so back/forward and re-visits are instant (on top of CDN SWR
-// and hover-preload). Cleared on full reload, which is when fresh data matters.
-const homeCache = new Map<Kind, Home>();
-const entityCache = new Map<string, Entity>();
-
-export async function loadHome(kind: Kind, f: typeof fetch = fetch): Promise<Home> {
-	const hit = homeCache.get(kind);
-	if (hit) return hit;
-	const res = await f(`${BASE}/v1/${kind}/home.json`);
-	if (!res.ok) throw new Error(`home ${kind} unavailable (${res.status})`);
-	const home = (await res.json()) as Home;
-	homeCache.set(kind, home);
-	return home;
+async function J<T>(f: typeof fetch, path: string): Promise<T> {
+	const r = await f(`${BASE}${path}`);
+	if (!r.ok) throw new Error(`${path} (${r.status})`);
+	return (await r.json()) as T;
 }
 
-export async function loadEntity(kind: Kind, id: string, f: typeof fetch = fetch): Promise<Entity> {
-	const key = `${kind}/${id}`;
-	const hit = entityCache.get(key);
+const listCache = new Map<string, CatalogEntry[]>();
+async function list(f: typeof fetch, path: string): Promise<CatalogEntry[]> {
+	const hit = listCache.get(path);
 	if (hit) return hit;
-	const res = await f(`${BASE}/v1/${kind}/entity/${id}.json`);
-	if (!res.ok) throw new Error(`entity ${key} unavailable (${res.status})`);
-	const entity = (await res.json()) as Entity;
-	entityCache.set(key, entity);
-	return entity;
+	const v = await J<CatalogEntry[]>(f, path);
+	listCache.set(path, v);
+	return v;
 }
 
-/** id = slug tail (id has no '-'). Lets a cold deep-link fetch the entity
- *  without loading the catalog first. */
-export const idFromSlug = (slug: string): string => slug.slice(slug.lastIndexOf('-') + 1);
+export const loadFeed = (page = 0, f: typeof fetch = fetch) => list(f, `/v1/feed/latest/${page}.json`);
+export const loadPopular = (period: 'day' | 'week' | 'all' = 'day', f: typeof fetch = fetch) => list(f, `/v1/feed/popular/${period}.json`);
+export const loadCalendar = (week: string, f: typeof fetch = fetch) => list(f, `/v1/calendar/${week}.json`);
+
+// Entity = head (current rev) → meta.v{rev} (immutable).
+const entityCache = new Map<string, EntityMeta>();
+export async function loadEntity(id: string, f: typeof fetch = fetch): Promise<EntityMeta> {
+	const hit = entityCache.get(id);
+	if (hit) return hit;
+	const head = await J<EntityHead>(f, `/v1/entity/${idPath(id)}/head.json`);
+	const meta = await J<EntityMeta>(f, `/v1/entity/${idPath(id)}/meta.v${head.rev}.json`);
+	entityCache.set(id, meta);
+	return meta;
+}
+
+// Full catalog (CatalogEntry[]) — resolve related ids to cards + name search.
+let search: CatalogEntry[] | null = null;
+export async function loadSearch(f: typeof fetch = fetch): Promise<CatalogEntry[]> {
+	if (search) return search;
+	const head = await J<SearchHead>(f, `/v1/search/head.json`);
+	search = await J<CatalogEntry[]>(f, `/v1/search/index.v${head.ver}.json`);
+	return search;
+}
+
+/** Resolve a list of entity ids to CatalogEntry via the search index. */
+export function resolve(index: CatalogEntry[], ids: string[]): CatalogEntry[] {
+	const by = new Map(index.map((e) => [e.id, e]));
+	return ids.map((id) => by.get(id)).filter((e): e is CatalogEntry => !!e);
+}

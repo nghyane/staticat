@@ -1,17 +1,16 @@
 <script lang="ts">
 	import Countdown from '$lib/components/Countdown.svelte';
 	import MiniCard from '$lib/components/MiniCard.svelte';
+	import { blob } from '$lib/types';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-	const a = $derived(data.a);
+	const a = $derived(data.meta);
 
 	const num = (n: number | null) => (n ? n.toLocaleString('en-US') : null);
-	const STATUS_LABEL: Record<string, string | null> = { airing: 'Airing', finished: 'Finished', upcoming: 'Upcoming', released: 'Released', cancelled: 'Cancelled', unknown: null };
+	const STATUS_LABEL: Record<string, string | null> = { airing: 'Airing', finished: 'Finished', upcoming: 'Upcoming', cancelled: 'Cancelled', unknown: null };
 	const statusLabel = $derived(STATUS_LABEL[a.status] ?? null);
 
-	// Per-kind detail rows + meta line. $derived so client navigation between
-	// entities (component reused) recomputes correctly.
 	const rows = $derived.by((): { detailRows: [string, string][]; metaItems: string[] } => {
 		const d = a.details;
 		let detailRows: [string, string | null][];
@@ -23,67 +22,59 @@
 				['Status', statusLabel], ['Aired', d.aired],
 				['Season', d.season && a.year ? `${d.season} ${a.year}` : null],
 				['Source', d.source], ['Studio', d.studio],
-				['Popularity', num(a.popularity)], ['Favourites', num(a.favourites)]
+				['Rating', a.rating ? `${a.rating}%` : null]
 			];
 			metaItems = [d.format, d.episodes ? `${d.episodes} eps` : null, d.aired, d.studio];
 		} else if (d.kind === 'movie') {
-			detailRows = [
-				['Runtime', d.runtime ? `${d.runtime} min` : null], ['Status', statusLabel],
-				['Released', d.released], ['Director', d.director], ['Studio', d.studios[0] ?? null],
-				['Popularity', num(a.popularity)]
-			];
-			metaItems = [d.runtime ? `${d.runtime} min` : null, d.released, d.director];
+			detailRows = [['Runtime', d.runtime ? `${d.runtime} min` : null], ['Status', statusLabel], ['Director', d.director], ['Rating', a.rating ? `${a.rating}%` : null]];
+			metaItems = [d.runtime ? `${d.runtime} min` : null, a.year ? String(a.year) : null, d.director];
+		} else if (d.kind === 'game') {
+			detailRows = [['Platforms', d.platforms.join(', ') || null], ['Status', statusLabel], ['Developer', d.developer], ['Rating', a.rating ? `${a.rating}%` : null]];
+			metaItems = [d.platforms[0] ?? null, a.year ? String(a.year) : null, d.developer];
 		} else {
-			detailRows = [
-				['Platforms', d.platforms.join(', ') || null], ['Status', statusLabel],
-				['Released', d.released], ['Developer', d.developer], ['Publisher', d.publisher],
-				['Popularity', num(a.popularity)]
-			];
-			metaItems = [d.platforms[0] ?? null, d.released, d.developer];
+			detailRows = [['Status', statusLabel], ['Rating', a.rating ? `${a.rating}%` : null]];
+			metaItems = [a.year ? String(a.year) : null];
 		}
-		return {
-			detailRows: detailRows.filter(([, v]) => v) as [string, string][],
-			metaItems: metaItems.filter(Boolean) as string[]
-		};
+		return { detailRows: detailRows.filter(([, v]) => v) as [string, string][], metaItems: metaItems.filter(Boolean) as string[] };
 	});
 	const detailRows = $derived(rows.detailRows);
 	const metaItems = $derived(rows.metaItems);
 
-	const SCHEMA_TYPE: Record<string, string> = { anime: 'TVSeries', movie: 'Movie', game: 'VideoGame' };
+	const SCHEMA_TYPE: Record<string, string> = { anime: 'TVSeries', tv: 'TVSeries', movie: 'Movie', game: 'VideoGame' };
 	const jsonLd = $derived({
 		'@context': 'https://schema.org', '@type': SCHEMA_TYPE[a.kind] ?? 'CreativeWork', name: a.title,
-		...(a.english ? { alternateName: a.english } : {}),
-		...(a.description ? { description: a.description.slice(0, 280) } : {}),
-		...(a.cover ? { image: a.cover } : {}),
-		...(a.score ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: (a.score / 10).toFixed(1), bestRating: 10, ratingCount: a.favourites ?? 1 } } : {}),
+		...(a.alt[0] ? { alternateName: a.alt[0] } : {}),
+		...(a.desc ? { description: a.desc.slice(0, 280) } : {}),
+		...(a.cover ? { image: blob(a.cover) } : {}),
+		...(a.rating ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: (a.rating / 10).toFixed(1), bestRating: 10, ratingCount: 1 } } : {}),
 		genre: a.genres
 	});
-	const alt = $derived([a.english, a.native].filter((x) => x && x !== a.title).join('  ·  '));
+	const alt = $derived([...a.alt.slice(0, 1), a.native].filter((x) => x && x !== a.title).join('  ·  '));
 	const watchLabel = $derived(a.kind === 'game' ? 'Where to play' : 'Where to watch');
 </script>
 
 <svelte:head>
 	<title>{a.title} — where to watch & next release | Watchdex</title>
-	<meta name="description" content={a.description?.slice(0, 155) ?? `When ${a.title} releases next and where to watch it.`} />
+	<meta name="description" content={a.desc?.slice(0, 155) ?? `When ${a.title} releases next and where to watch it.`} />
 	{@html `<script type="application/ld+json">${JSON.stringify(jsonLd)}<\/script>`}
 </svelte:head>
 
 <section class="hero">
 	{#if a.banner}
 		<div class="banner">
-			<img src={a.banner} alt="" width="1280" height="320" fetchpriority="high" />
+			<img src={blob(a.banner)} alt="" width="1280" height="320" fetchpriority="high" />
 			<div class="banner-bar"><div class="wrap"><a class="back over" href="/">&larr; Schedule</a></div></div>
 		</div>
 	{:else}
 		<div class="wrap topbar"><a class="back" href="/">&larr; Schedule</a></div>
 	{/if}
 	<div class="wrap hero-in" class:pull={a.banner}>
-		<div class="poster"><img src={a.cover} alt={a.title} width="220" height="311" /></div>
+		<div class="poster"><img src={blob(a.cover)} alt={a.title} width="220" height="311" /></div>
 		<div class="head">
 			<h1 class="h1">{a.title}</h1>
 			{#if alt}<p class="alt">{alt}</p>{/if}
 			<p class="metaline">
-				{#if a.score}<span class="score" class:hi={a.score >= 75}>{a.score}%</span>{/if}
+				{#if a.rating}<span class="score" class:hi={a.rating >= 75}>{a.rating}%</span>{/if}
 				{#each metaItems as m}<span class="m">{m}</span>{/each}
 			</p>
 			<div class="chips">
@@ -96,15 +87,15 @@
 
 <div class="wrap body">
 	<main class="content">
-		{#if a.next}
+		{#if a.schedule?.airAt}
 			<div class="next-card">
 				<span class="eyebrow">Coming up</span>
-				<p class="next-line"><span class="ep mono">{a.next.label}</span> <span class="in">in</span> <Countdown airAt={a.next.at} class="big" /></p>
+				<p class="next-line"><span class="ep mono">EP {a.schedule.nextEp}</span> <span class="in">in</span> <Countdown airAt={a.schedule.airAt} class="big" /></p>
 			</div>
 		{/if}
 
-		{#if a.description}
-			<section class="sec"><h2 class="sec-h">Synopsis</h2><p class="desc">{a.description}</p></section>
+		{#if a.desc}
+			<section class="sec"><h2 class="sec-h">Synopsis</h2><p class="desc">{a.desc}</p></section>
 		{/if}
 
 		{#if a.characters.length > 0}
@@ -113,20 +104,20 @@
 				<div class="chars">
 					{#each a.characters as c}
 						<div class="char">
-							<span class="cside"><img class="cim" src={c.image} alt="" loading="lazy" width="36" height="50" /><span class="cinfo"><span class="cname">{c.name}</span><span class="crole">{c.role}</span></span></span>
-							{#if c.va}<span class="vside"><span class="vname">{c.va}</span>{#if c.vaImage}<img class="vim" src={c.vaImage} alt="" loading="lazy" width="36" height="50" />{/if}</span>{/if}
+							<span class="cside"><img class="cim" src={blob(c.image)} alt="" loading="lazy" width="36" height="50" /><span class="cinfo"><span class="cname">{c.name}</span><span class="crole">{c.role}</span></span></span>
+							{#if c.va}<span class="vside"><span class="vname">{c.va}</span>{#if c.vaImage}<img class="vim" src={blob(c.vaImage)} alt="" loading="lazy" width="36" height="50" />{/if}</span>{/if}
 						</div>
 					{/each}
 				</div>
 			</section>
 		{/if}
 
-		{#if a.related.length > 0}
-			<section class="sec"><h2 class="sec-h">Related</h2><div class="mini-grid">{#each a.related as m (m.id)}<MiniCard {m} />{/each}</div></section>
+		{#if data.related.length > 0}
+			<section class="sec"><h2 class="sec-h">Related</h2><div class="mini-grid">{#each data.related as m (m.id)}<MiniCard {m} />{/each}</div></section>
 		{/if}
 
-		{#if a.recommendations.length > 0}
-			<section class="sec"><h2 class="sec-h">You might also like</h2><div class="mini-grid">{#each a.recommendations as m (m.id)}<MiniCard {m} />{/each}</div></section>
+		{#if data.recommendations.length > 0}
+			<section class="sec"><h2 class="sec-h">You might also like</h2><div class="mini-grid">{#each data.recommendations as m (m.id)}<MiniCard {m} />{/each}</div></section>
 		{/if}
 	</main>
 
@@ -137,8 +128,8 @@
 		</section>
 		<section class="panel">
 			<span class="eyebrow">{watchLabel}</span>
-			{#if a.streams.length > 0}
-				<div class="watch">{#each a.streams as s}<a class="prov" href={s.url} rel="nofollow noopener" target="_blank">{s.site} &rarr;</a>{/each}</div>
+			{#if a.availability.length > 0}
+				<div class="watch">{#each a.availability as s}<a class="prov" href={s.url} rel="nofollow noopener" target="_blank">{s.provider} &rarr;</a>{/each}</div>
 			{:else}
 				<p class="nostream">No links yet.</p>
 			{/if}

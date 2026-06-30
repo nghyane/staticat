@@ -1,22 +1,22 @@
 <script lang="ts">
 	import Countdown from './Countdown.svelte';
-	import type { Card } from '$lib/types';
-	let { a }: { a: Card } = $props();
-	const soon = $derived(a.next ? a.next.at - Date.now() / 1000 < 3600 : false);
-	const meta = $derived([a.meta, a.score ? `${a.score}%` : null].filter(Boolean).join('  ·  '));
+	import { blob, numOf, cardMeta, type CatalogEntry } from '$lib/types';
+	let { a }: { a: CatalogEntry } = $props();
+	const soon = $derived(a.schedule?.airAt ? a.schedule.airAt - Date.now() / 1000 < 3600 : false);
+	const meta = $derived([cardMeta(a), a.rating ? `${a.rating}%` : null].filter(Boolean).join('  ·  '));
 </script>
 
-<a class="row" href={`/${a.kind}/${a.slug}`}>
-	<span class="poster"><img src={a.cover} alt="" loading="lazy" decoding="async" width="44" height="62" /></span>
+<a class="row" href={`/${a.kind}/${numOf(a.id)}`}>
+	<span class="poster"><img src={blob(a.cover)} alt="" loading="lazy" decoding="async" width="44" height="62" /></span>
 	<span class="main">
 		<span class="title">{a.title}</span>
 		<span class="meta">{meta}</span>
 	</span>
-	{#if a.next}
+	{#if a.schedule?.airAt}
 		<span class="cd" class:soon>
-			<span class="ep mono">{a.next.label}</span>
+			<span class="ep mono">EP {a.schedule.nextEp}</span>
 			{#if soon}<span class="dot" aria-hidden="true"></span>{/if}
-			<Countdown airAt={a.next.at} />
+			<Countdown airAt={a.schedule.airAt} />
 		</span>
 	{/if}
 </a>

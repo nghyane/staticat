@@ -1,7 +1,7 @@
-import { loadHome } from '$lib/catalog';
+import { loadFeed, loadPopular } from '$lib/catalog';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
-	const home = await loadHome('anime', fetch);
-	return { home };
+	const [feed, popular] = await Promise.all([loadFeed(0, fetch), loadPopular('day', fetch)]);
+	return { feed: feed.filter((e) => e.kind === 'anime'), popular: popular.filter((e) => e.kind === 'anime') };
 };

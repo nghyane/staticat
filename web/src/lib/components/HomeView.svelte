@@ -2,28 +2,30 @@
 	import Hero from './Hero.svelte';
 	import ScheduleRow from './ScheduleRow.svelte';
 	import MediaCard from './MediaCard.svelte';
-	import type { Home } from '$lib/types';
+	import type { CatalogEntry, Kind } from '$lib/types';
 
-	let { home }: { home: Home } = $props();
-	const upNext = $derived(home.airing.slice(0, 8));
-	const label = $derived(home.kind[0].toUpperCase() + home.kind.slice(1));
+	let { kind, feed, popular }: { kind: Kind; feed: CatalogEntry[]; popular: CatalogEntry[] } = $props();
+	const featured = $derived(feed.find((e) => e.schedule?.airAt) ?? feed[0] ?? null);
+	const upNext = $derived(feed.slice(0, 8));
+	const trending = $derived(popular.slice(0, 18));
+	const label = $derived(kind[0].toUpperCase() + kind.slice(1));
 </script>
 
-{#if home.featured}
-	<Hero featured={home.featured} season={home.season} count={home.airingCount} />
+{#if featured}
+	<Hero {featured} count={feed.length} />
 
 	<div class="wrap">
 		{#if upNext.length > 0}
 			<section class="block">
-				<header class="section-h"><h2>Airing next</h2><a href="/{home.kind === 'anime' ? '' : home.kind}">Full schedule &rarr;</a></header>
+				<header class="section-h"><h2>Airing next</h2><a href="/">Full schedule &rarr;</a></header>
 				<div class="rows">{#each upNext as a (a.id)}<ScheduleRow {a} />{/each}</div>
 			</section>
 		{/if}
 
-		{#if home.trending.length > 0}
+		{#if trending.length > 0}
 			<section class="block">
-				<header class="section-h"><h2>Trending this season</h2></header>
-				<div class="grid">{#each home.trending as a (a.id)}<MediaCard {a} />{/each}</div>
+				<header class="section-h"><h2>Trending</h2></header>
+				<div class="grid">{#each trending as a (a.id)}<MediaCard {a} />{/each}</div>
 			</section>
 		{/if}
 	</div>
