@@ -5,8 +5,8 @@
 	const label = $derived(data.kind[0].toUpperCase() + data.kind.slice(1));
 </script>
 
-{#if data.items.length > 0}
-	<BrowseLanding kind={data.kind} items={data.items} />
+{#if data.genres.length > 0}
+	<BrowseLanding kind={data.kind} genres={data.genres} />
 {:else}
 	<div class="wrap empty">
 		<p class="eyebrow">{label}</p>

@@ -1,10 +1,20 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import MediaCard from './MediaCard.svelte';
+	import { loadSearch } from '$lib/catalog';
 	import { slugifyGenre, type CatalogEntry, type Kind } from '$lib/types';
 	import { SITE } from '$lib/site';
 
-	let { kind, items }: { kind: Kind; items: CatalogEntry[] } = $props();
+	// `genres` is the stable SEO skeleton (prerendered nav links). The card
+	// grids are volatile, so they're fetched fresh from R2 on the client — the
+	// prerendered HTML never bakes them, so data updates need no rebuild.
+	let { kind, genres }: { kind: Kind; genres: string[] } = $props();
 	const canonical = $derived(`${SITE}/${kind}`);
+
+	let items = $state<CatalogEntry[]>([]);
+	onMount(async () => {
+		items = (await loadSearch()).filter((e) => e.kind === kind);
+	});
 
 	// per-kind copy — distinct keywords/intent (anti-thin-content, SEO)
 	const COPY: Record<string, { eyebrow: string; h1: string; intro: string }> = {
@@ -17,20 +27,14 @@
 	const c = $derived(COPY[kind] ?? COPY.anime);
 
 	const byRating = $derived([...items].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)));
-	const topGenres = $derived.by(() => {
-		const m = new Map<string, number>();
-		for (const e of items) for (const g of e.genres) m.set(g, (m.get(g) ?? 0) + 1);
-		return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([g]) => g);
-	});
 	const genreRows = $derived(
-		topGenres.slice(0, 4).map((g) => ({ g, list: byRating.filter((e) => e.genres.includes(g)).slice(0, 12) })).filter((r) => r.list.length >= 4)
+		genres.slice(0, 4).map((g) => ({ g, list: byRating.filter((e) => e.genres.includes(g)).slice(0, 12) })).filter((r) => r.list.length >= 4)
 	);
 	const recent = $derived([...items].filter((e) => e.year).sort((a, b) => (b.year ?? 0) - (a.year ?? 0)).slice(0, 12));
 
+	// structural JSON-LD — no per-item list, so it's complete at prerender time
 	const jsonLd = $derived({
-		'@context': 'https://schema.org', '@type': 'CollectionPage', name: c.h1,
-		about: c.intro,
-		mainEntity: { '@type': 'ItemList', numberOfItems: items.length, itemListElement: byRating.slice(0, 10).map((e, i) => ({ '@type': 'ListItem', position: i + 1, name: e.title })) }
+		'@context': 'https://schema.org', '@type': 'CollectionPage', name: c.h1, about: c.intro
 	});
 </script>
 
@@ -51,7 +55,7 @@
 		<h1>{c.h1}</h1>
 		<p class="intro">{c.intro}</p>
 		<nav class="genres" aria-label="Genres">
-			{#each topGenres as g}<a class="chip" href={`/genre/${slugifyGenre(g)}`}>{g}</a>{/each}
+			{#each genres as g}<a class="chip" href={`/genre/${slugifyGenre(g)}`}>{g}</a>{/each}
 		</nav>
 	</header>
 

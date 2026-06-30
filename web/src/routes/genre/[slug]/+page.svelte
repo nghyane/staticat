@@ -1,28 +1,33 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import BrowseGrid from '$lib/components/BrowseGrid.svelte';
-	import { page } from '$app/state';
+	import { loadSearch } from '$lib/catalog';
+	import { slugifyGenre, type CatalogEntry } from '$lib/types';
 	import { SITE } from '$lib/site';
 	import type { PageData } from './$types';
 	let { data }: { data: PageData } = $props();
 
-	// genres span every vertical — name the kinds actually present, not just anime
+	// genres span every vertical — name the kinds actually present (baked at build)
 	const KIND_LABEL: Record<string, string> = { anime: 'anime', manga: 'manga', movie: 'movies', tv: 'TV series', game: 'games' };
-	const kinds = $derived([...new Set(data.items.map((e) => e.kind))].map((k) => KIND_LABEL[k] ?? k));
+	const kinds = $derived(data.kinds.map((k) => KIND_LABEL[k] ?? k));
 	const kindList = $derived(kinds.length > 1 ? `${kinds.slice(0, -1).join(', ')} and ${kinds.at(-1)}` : (kinds[0] ?? 'titles'));
-	const canonical = $derived(`${SITE}/genre/${page.params.slug}`);
+	const canonical = $derived(`${SITE}/genre/${data.slug}`);
 	const title = $derived(`${data.name} — top ${kindList} | Watchdex`);
 	const desc = $derived(`Browse the best ${data.name} ${kindList} ranked by score, with ratings and where to watch or read.`);
+
+	// grid hydrates fresh from R2 — prerendered HTML bakes only the skeleton above
+	let items = $state<CatalogEntry[]>([]);
+	onMount(async () => {
+		items = (await loadSearch())
+			.filter((e) => e.genres.some((g) => slugifyGenre(g) === data.slug))
+			.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+	});
 
 	const jsonLd = $derived({
 		'@context': 'https://schema.org',
 		'@type': 'CollectionPage',
 		name: `${data.name} — ${kindList}`,
-		about: desc,
-		mainEntity: {
-			'@type': 'ItemList',
-			numberOfItems: data.items.length,
-			itemListElement: data.items.slice(0, 10).map((e, i) => ({ '@type': 'ListItem', position: i + 1, name: e.title }))
-		}
+		about: desc
 	});
 </script>
 
@@ -37,4 +42,4 @@
 	{@html `<script type="application/ld+json">${JSON.stringify(jsonLd)}<\/script>`}
 </svelte:head>
 
-<BrowseGrid eyebrow="Genre" title={data.name} items={data.items} />
+<BrowseGrid eyebrow="Genre" title={data.name} {items} count={data.count} />

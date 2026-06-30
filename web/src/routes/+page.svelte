@@ -18,4 +18,4 @@
 	<meta property="og:description" content={desc} />
 </svelte:head>
 
-<HomeView kind="anime" feed={data.feed} popular={data.popular} index={data.index} />
+<HomeView kind="anime" genres={data.genres} />

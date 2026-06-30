@@ -15,9 +15,12 @@ export const entries: EntryGenerator = async () => {
 };
 
 export const load: PageLoad = async ({ fetch, params }) => {
+	// Data-light prerender: bake only the stable skeleton (name, kinds, count for
+	// the head + heading). The grid itself is fetched fresh client-side.
 	const index = await loadSearch(fetch);
 	const match = index.filter((e) => e.genres.some((g) => slugifyGenre(g) === params.slug));
 	if (match.length === 0) throw error(404, 'Genre not found');
 	const name = match[0].genres.find((g) => slugifyGenre(g) === params.slug) ?? params.slug;
-	return { name, items: match.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)) };
+	const kinds = [...new Set(match.map((e) => e.kind))];
+	return { name, slug: params.slug, kinds, count: match.length };
 };

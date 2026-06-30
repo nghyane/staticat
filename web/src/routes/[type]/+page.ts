@@ -14,6 +14,11 @@ export const entries: EntryGenerator = () =>
 export const load: PageLoad = async ({ fetch, params }) => {
 	if (!isKind(params.type)) throw error(404, 'Not found');
 	if (params.type === 'anime') throw redirect(307, '/'); // anime home lives at /
+	// Data-light prerender: bake only the stable genre nav (SEO skeleton). The
+	// card grids are fetched fresh client-side, so data updates need no rebuild.
 	const items = (await loadSearch(fetch)).filter((e) => e.kind === params.type);
-	return { kind: params.type, items };
+	const counts = new Map<string, number>();
+	for (const e of items) for (const g of e.genres) counts.set(g, (counts.get(g) ?? 0) + 1);
+	const genres = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([g]) => g);
+	return { kind: params.type, genres };
 };

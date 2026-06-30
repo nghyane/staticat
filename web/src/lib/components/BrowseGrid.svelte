@@ -1,14 +1,17 @@
 <script lang="ts">
 	import MediaCard from './MediaCard.svelte';
 	import type { CatalogEntry } from '$lib/types';
-	let { eyebrow, title, items }: { eyebrow: string; title: string; items: CatalogEntry[] } = $props();
+	// `count` lets a caller show a known total (e.g. baked at prerender) while the
+	// grid itself hydrates client-side; defaults to the rendered item count.
+	let { eyebrow, title, items, count }: { eyebrow: string; title: string; items: CatalogEntry[]; count?: number } = $props();
+	const total = $derived(count ?? items.length);
 </script>
 
 <div class="wrap page">
 	<header class="head">
 		<p class="eyebrow">{eyebrow}</p>
 		<h1>{title}</h1>
-		<p class="count">{items.length} title{items.length === 1 ? '' : 's'}</p>
+		<p class="count">{total} title{total === 1 ? '' : 's'}</p>
 	</header>
 	<div class="grid">{#each items as a (a.id)}<MediaCard {a} />{/each}</div>
 </div>
