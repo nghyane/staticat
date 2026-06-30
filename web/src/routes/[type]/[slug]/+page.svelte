@@ -4,35 +4,67 @@
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-	const a = data.a;
-	const known = data.known;
+	const a = $derived(data.a);
 
 	const num = (n: number | null) => (n ? n.toLocaleString('en-US') : null);
-	const statusLabel = a.status === 'RELEASING' ? 'Airing' : a.status ? a.status[0] + a.status.slice(1).toLowerCase() : null;
-	const details: [string, string | null][] = [
-		['Format', a.format], ['Episodes', a.episodes ? String(a.episodes) : null],
-		['Duration', a.duration ? `${a.duration} min` : null],
-		['Status', statusLabel],
-		['Aired', a.aired], ['Season', a.season && a.year ? `${a.season} ${a.year}` : null],
-		['Source', a.source], ['Studio', a.studio], ['Popularity', num(a.popularity)], ['Favourites', num(a.favourites)]
-	];
-	const detailRows = details.filter(([, v]) => v) as [string, string][];
-	const metaItems = [a.format, a.episodes ? `${a.episodes} eps` : null, a.aired, a.studio].filter(Boolean) as string[];
+	const STATUS_LABEL: Record<string, string | null> = { airing: 'Airing', finished: 'Finished', upcoming: 'Upcoming', released: 'Released', cancelled: 'Cancelled', unknown: null };
+	const statusLabel = $derived(STATUS_LABEL[a.status] ?? null);
 
-	const jsonLd = {
-		'@context': 'https://schema.org', '@type': 'TVSeries', name: a.title,
+	// Per-kind detail rows + meta line. $derived so client navigation between
+	// entities (component reused) recomputes correctly.
+	const rows = $derived.by((): { detailRows: [string, string][]; metaItems: string[] } => {
+		const d = a.details;
+		let detailRows: [string, string | null][];
+		let metaItems: (string | null)[];
+		if (d.kind === 'anime') {
+			detailRows = [
+				['Format', d.format], ['Episodes', d.episodes ? String(d.episodes) : null],
+				['Duration', d.duration ? `${d.duration} min` : null],
+				['Status', statusLabel], ['Aired', d.aired],
+				['Season', d.season && a.year ? `${d.season} ${a.year}` : null],
+				['Source', d.source], ['Studio', d.studio],
+				['Popularity', num(a.popularity)], ['Favourites', num(a.favourites)]
+			];
+			metaItems = [d.format, d.episodes ? `${d.episodes} eps` : null, d.aired, d.studio];
+		} else if (d.kind === 'movie') {
+			detailRows = [
+				['Runtime', d.runtime ? `${d.runtime} min` : null], ['Status', statusLabel],
+				['Released', d.released], ['Director', d.director], ['Studio', d.studios[0] ?? null],
+				['Popularity', num(a.popularity)]
+			];
+			metaItems = [d.runtime ? `${d.runtime} min` : null, d.released, d.director];
+		} else {
+			detailRows = [
+				['Platforms', d.platforms.join(', ') || null], ['Status', statusLabel],
+				['Released', d.released], ['Developer', d.developer], ['Publisher', d.publisher],
+				['Popularity', num(a.popularity)]
+			];
+			metaItems = [d.platforms[0] ?? null, d.released, d.developer];
+		}
+		return {
+			detailRows: detailRows.filter(([, v]) => v) as [string, string][],
+			metaItems: metaItems.filter(Boolean) as string[]
+		};
+	});
+	const detailRows = $derived(rows.detailRows);
+	const metaItems = $derived(rows.metaItems);
+
+	const SCHEMA_TYPE: Record<string, string> = { anime: 'TVSeries', movie: 'Movie', game: 'VideoGame' };
+	const jsonLd = $derived({
+		'@context': 'https://schema.org', '@type': SCHEMA_TYPE[a.kind] ?? 'CreativeWork', name: a.title,
 		...(a.english ? { alternateName: a.english } : {}),
 		...(a.description ? { description: a.description.slice(0, 280) } : {}),
 		...(a.cover ? { image: a.cover } : {}),
 		...(a.score ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: (a.score / 10).toFixed(1), bestRating: 10, ratingCount: a.favourites ?? 1 } } : {}),
 		genre: a.genres
-	};
-	const alt = [a.english, a.native].filter((x) => x && x !== a.title).join('  ·  ');
+	});
+	const alt = $derived([a.english, a.native].filter((x) => x && x !== a.title).join('  ·  '));
+	const watchLabel = $derived(a.kind === 'game' ? 'Where to play' : 'Where to watch');
 </script>
 
 <svelte:head>
-	<title>{a.title} — where to watch & next episode | Watchdex</title>
-	<meta name="description" content={a.description?.slice(0, 155) ?? `When ${a.title} airs next and where to watch it.`} />
+	<title>{a.title} — where to watch & next release | Watchdex</title>
+	<meta name="description" content={a.description?.slice(0, 155) ?? `When ${a.title} releases next and where to watch it.`} />
 	{@html `<script type="application/ld+json">${JSON.stringify(jsonLd)}<\/script>`}
 </svelte:head>
 
@@ -64,10 +96,10 @@
 
 <div class="wrap body">
 	<main class="content">
-		{#if a.nextEp}
+		{#if a.next}
 			<div class="next-card">
-				<span class="eyebrow">Next episode</span>
-				<p class="next-line"><span class="ep mono">EP {a.nextEp.episode}</span> <span class="in">airs in</span> <Countdown airAt={a.nextEp.airingAt} class="big" /></p>
+				<span class="eyebrow">Coming up</span>
+				<p class="next-line"><span class="ep mono">{a.next.label}</span> <span class="in">in</span> <Countdown airAt={a.next.at} class="big" /></p>
 			</div>
 		{/if}
 
@@ -89,12 +121,12 @@
 			</section>
 		{/if}
 
-		{#if a.relations.length > 0}
-			<section class="sec"><h2 class="sec-h">Related</h2><div class="mini-grid">{#each a.relations as m (m.id)}<MiniCard {m} internal={known.has(m.slug)} />{/each}</div></section>
+		{#if a.related.length > 0}
+			<section class="sec"><h2 class="sec-h">Related</h2><div class="mini-grid">{#each a.related as m (m.id)}<MiniCard {m} />{/each}</div></section>
 		{/if}
 
 		{#if a.recommendations.length > 0}
-			<section class="sec"><h2 class="sec-h">You might also like</h2><div class="mini-grid">{#each a.recommendations as m (m.id)}<MiniCard {m} internal={known.has(m.slug)} />{/each}</div></section>
+			<section class="sec"><h2 class="sec-h">You might also like</h2><div class="mini-grid">{#each a.recommendations as m (m.id)}<MiniCard {m} />{/each}</div></section>
 		{/if}
 	</main>
 
@@ -104,11 +136,11 @@
 			<dl class="dl">{#each detailRows as [k, v]}<div class="dl-row"><dt>{k}</dt><dd>{v}</dd></div>{/each}</dl>
 		</section>
 		<section class="panel">
-			<span class="eyebrow">Where to watch</span>
+			<span class="eyebrow">{watchLabel}</span>
 			{#if a.streams.length > 0}
 				<div class="watch">{#each a.streams as s}<a class="prov" href={s.url} rel="nofollow noopener" target="_blank">{s.site} &rarr;</a>{/each}</div>
 			{:else}
-				<p class="nostream">No streaming links yet.</p>
+				<p class="nostream">No links yet.</p>
 			{/if}
 		</section>
 	</aside>

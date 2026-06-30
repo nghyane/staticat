@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Countdown from './Countdown.svelte';
-	import type { Anime } from '$lib/types';
-	let { featured, season, count }: { featured: Anime; season: string; count: number } = $props();
+	import type { Card } from '$lib/types';
+	let { featured, season, count }: { featured: Card; season: string; count: number } = $props();
 </script>
 
 <section class="hero">
@@ -12,12 +12,12 @@
 			<p class="sub">Live countdowns for {count} anime airing this season &mdash; with scores, genres and streaming, in your local timezone.</p>
 		</div>
 
-		<a class="feat" href={`/anime/${featured.slug}`}>
+		<a class="feat" href={`/${featured.kind}/${featured.slug}`}>
 			<img src={featured.cover} alt={featured.title} width="280" height="396" loading="eager" decoding="async" />
 			<div class="cap">
 				<span class="t">{featured.title}</span>
-				{#if featured.nextEp}
-					<span class="cd"><span class="ep mono">EP {featured.nextEp.episode}</span> &middot; <Countdown airAt={featured.nextEp.airingAt} class="w" /></span>
+				{#if featured.next}
+					<span class="cd"><span class="ep mono">{featured.next.label}</span> &middot; <Countdown airAt={featured.next.at} class="w" /></span>
 				{/if}
 			</div>
 		</a>

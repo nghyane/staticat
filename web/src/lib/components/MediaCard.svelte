@@ -1,18 +1,17 @@
 <script lang="ts">
 	import Countdown from './Countdown.svelte';
-	import type { Anime } from '$lib/types';
-	let { a }: { a: Anime } = $props();
-	const meta = [a.format, a.episodes ? `${a.episodes} eps` : null, a.year].filter(Boolean).join(' · ');
+	import type { Card } from '$lib/types';
+	let { a }: { a: Card } = $props();
 </script>
 
-<a class="card" href={`/anime/${a.slug}`}>
+<a class="card" href={`/${a.kind}/${a.slug}`}>
 	<div class="poster" style={a.color ? `background:${a.color}` : undefined}>
 		<img src={a.cover} alt={a.title} loading="lazy" decoding="async" width="230" height="325" />
 		{#if a.score}<span class="score badge" class:hi={a.score >= 75}>{a.score}</span>{/if}
 	</div>
 	<h3 class="title">{a.title}</h3>
-	<p class="meta">{meta}</p>
-	{#if a.nextEp}<p class="next"><span class="ep mono">EP {a.nextEp.episode}</span> <Countdown airAt={a.nextEp.airingAt} /></p>{/if}
+	<p class="meta">{a.meta}</p>
+	{#if a.next}<p class="next"><span class="ep mono">{a.next.label}</span> <Countdown airAt={a.next.at} /></p>{/if}
 </a>
 
 <style>

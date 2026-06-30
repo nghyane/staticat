@@ -1,11 +1,13 @@
 <script lang="ts">
-	import type { Mini, Related } from '$lib/types';
-	let { m, internal }: { m: Mini | Related; internal: boolean } = $props();
-	const href = internal ? `/anime/${m.slug}` : `https://anilist.co/anime/${m.id}`;
-	const relation = (m as Related).relation;
+	import type { Ref, Related } from '$lib/types';
+	// Always internal. The ingest only keeps refs whose entity exists on
+	// Watchdex (see ingest/lib/contract.js), so these never 404 and never
+	// leave the site.
+	let { m }: { m: Ref | Related } = $props();
+	const relation = $derived((m as Related).relation);
 </script>
 
-<a class="mini" {href} target={internal ? undefined : '_blank'} rel={internal ? undefined : 'noopener nofollow'}>
+<a class="mini" href={`/${m.kind}/${m.slug}`}>
 	<div class="cv"><img src={m.cover} alt="" loading="lazy" decoding="async" width="92" height="128" /></div>
 	{#if relation}<span class="rel">{relation}</span>{/if}
 	<span class="t">{m.title}</span>

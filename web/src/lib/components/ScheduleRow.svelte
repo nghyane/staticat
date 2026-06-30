@@ -1,22 +1,22 @@
 <script lang="ts">
 	import Countdown from './Countdown.svelte';
-	import type { Anime } from '$lib/types';
-	let { a }: { a: Anime } = $props();
-	const soon = a.nextEp ? a.nextEp.airingAt - Date.now() / 1000 < 3600 : false;
-	const meta = [a.format, a.studio, a.score ? `${a.score}%` : null].filter(Boolean).join('  ·  ');
+	import type { Card } from '$lib/types';
+	let { a }: { a: Card } = $props();
+	const soon = $derived(a.next ? a.next.at - Date.now() / 1000 < 3600 : false);
+	const meta = $derived([a.meta, a.score ? `${a.score}%` : null].filter(Boolean).join('  ·  '));
 </script>
 
-<a class="row" href={`/anime/${a.slug}`}>
+<a class="row" href={`/${a.kind}/${a.slug}`}>
 	<span class="poster"><img src={a.cover} alt="" loading="lazy" decoding="async" width="44" height="62" /></span>
 	<span class="main">
 		<span class="title">{a.title}</span>
 		<span class="meta">{meta}</span>
 	</span>
-	{#if a.nextEp}
+	{#if a.next}
 		<span class="cd" class:soon>
-			<span class="ep mono">EP {a.nextEp.episode}</span>
+			<span class="ep mono">{a.next.label}</span>
 			{#if soon}<span class="dot" aria-hidden="true"></span>{/if}
-			<Countdown airAt={a.nextEp.airingAt} />
+			<Countdown airAt={a.next.at} />
 		</span>
 	{/if}
 </a>

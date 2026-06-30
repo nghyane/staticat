@@ -1,7 +1,7 @@
 <script lang="ts">
-	import '@fontsource-variable/space-grotesk';
-	import '@fontsource-variable/hanken-grotesk';
-	import '@fontsource/space-mono';
+	import '@fontsource-variable/space-grotesk/index.css';
+	import '@fontsource-variable/hanken-grotesk/index.css';
+	import '@fontsource/space-mono/index.css';
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
