@@ -48,7 +48,7 @@ Frontend (Astro) = repo riêng, chỉ import `contract.ts` (vendor/submodule). P
 | 3 | đánh bóng UI/UX + sitemap nhẹ | trải nghiệm mượt |
 | 4 (tùy) | account/sync (Worker+D1) | đa thiết bị |
 
-SEO không cần prerender (Google render JS) -> tập trung UI/UX. Xem `docs/architecture.md`.
+SEO: **data-light prerender** cho landing (bake khung SEO bất biến, list động hydrate client từ R2) + sitemap; SPA thuần KHÔNG đủ (social/AI crawler không chạy JS). Xem `docs/architecture.md`.
 
 ## Chi phí
 R2 10GB data free (≈20k+ title), egress $0, Pages free. MVP read-only ≈ $0; chỉ trả storage blob khi lớn.
