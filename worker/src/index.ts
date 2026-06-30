@@ -4,7 +4,7 @@
 // idempotent rev via hash, immutable meta.v{rev} first, head pointer last —
 // but writes via the R2 binding (no S3 creds). GitHub Actions is the default;
 // keep this only if you set up a relay.
-import { fetchList, enrich } from '../../ingest/lib/jikan.js';
+import { fetchList, fetchMangaList, enrich } from '../../ingest/lib/jikan.js';
 import { paths, hash, buildEntities, buildListings } from '../../ingest/lib/contract.js';
 
 interface R2Bucket {
@@ -12,7 +12,7 @@ interface R2Bucket {
 	put(key: string, value: string, opts?: { httpMetadata?: { contentType?: string; cacheControl?: string } }): Promise<unknown>;
 	delete(key: string): Promise<unknown>;
 }
-interface Env { DATA: R2Bucket; AIRING_PAGES?: string; POPULAR_PAGES?: string; ENRICH_LIMIT?: string; INGEST_SECRET?: string }
+interface Env { DATA: R2Bucket; AIRING_PAGES?: string; POPULAR_PAGES?: string; MANGA_PAGES?: string; ENRICH_LIMIT?: string; INGEST_SECRET?: string }
 
 const POINTER = 'public, max-age=30, stale-while-revalidate=300, stale-if-error=86400';
 const POPULAR = 'public, max-age=300, stale-while-revalidate=3600';
@@ -27,14 +27,17 @@ const cacheFor = (k: string) =>
 const key = (p: string) => p.replace(/^\//, '');
 
 async function ingest(env: Env): Promise<{ titles: number; changed: number; enriched: number }> {
-	const air = Number(env.AIRING_PAGES ?? 2), pop = Number(env.POPULAR_PAGES ?? 2), lim = Number(env.ENRICH_LIMIT ?? 30);
+	const air = Number(env.AIRING_PAGES ?? 2), pop = Number(env.POPULAR_PAGES ?? 6), manga = Number(env.MANGA_PAGES ?? 4), lim = Number(env.ENRICH_LIMIT ?? 30);
 	const get = async (k: string) => (await env.DATA.get(k))?.text() ?? null;
 	const put = (k: string, v: string) => env.DATA.put(k, v, { httpMetadata: { contentType: 'application/json', cacheControl: cacheFor(k) } });
 	const now = Math.floor(Date.now() / 1000);
 	const idx = JSON.parse((await get('v1/_heads.json')) || '{}'); // { id: { rev, hash, enriched } }
 
-	// 1. fast list (schedule/feed) — no per-entity calls
-	const core = await fetchList({ airingPages: air, popularPages: pop, throttle: 380 });
+	// 1. fast list (anime: schedule/feed + manga) — no per-entity calls
+	const core = [
+		...(await fetchList({ airingPages: air, popularPages: pop, throttle: 380 })),
+		...(await fetchMangaList({ pages: manga, throttle: 380 }))
+	];
 
 	// 2. carry prev enrichment forward; enrich un-enriched ones up to budget
 	//    (progressive — every run fully completes a slice). Schedule stays fresh.

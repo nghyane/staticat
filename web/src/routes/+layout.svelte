@@ -11,6 +11,7 @@
 
 	const tabs = [
 		{ label: 'Anime', href: '/' },
+		{ label: 'Manga', href: '/manga' },
 		{ label: 'Movies', href: '/movie' },
 		{ label: 'Games', href: '/game' }
 	];

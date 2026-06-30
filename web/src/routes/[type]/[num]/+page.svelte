@@ -9,7 +9,9 @@
 
 	const num = (n: number | null) => (n ? n.toLocaleString('en-US') : null);
 	const STATUS_LABEL: Record<string, string | null> = { airing: 'Airing', finished: 'Finished', upcoming: 'Upcoming', cancelled: 'Cancelled', unknown: null };
-	const statusLabel = $derived(STATUS_LABEL[a.status] ?? null);
+	const statusLabel = $derived(a.kind === 'manga' && a.status === 'airing' ? 'Publishing' : (STATUS_LABEL[a.status] ?? null));
+	const backHref = $derived(a.kind === 'anime' ? '/' : `/${a.kind}`);
+	const backLabel = $derived(a.kind === 'anime' ? 'Schedule' : 'Browse');
 
 	const rows = $derived.by((): { detailRows: [string, string][]; metaItems: string[] } => {
 		const d = a.details;
@@ -25,6 +27,14 @@
 				['Rating', a.rating ? `${a.rating}%` : null]
 			];
 			metaItems = [d.format, d.episodes ? `${d.episodes} eps` : null, d.aired, d.studio];
+		} else if (d.kind === 'manga') {
+			detailRows = [
+				['Type', d.format], ['Chapters', d.chapters ? String(d.chapters) : null], ['Volumes', d.volumes ? String(d.volumes) : null],
+				['Status', statusLabel], ['Published', d.published],
+				['Author', d.authors[0] ?? null], ['Serialization', d.serialization],
+				['Rating', a.rating ? `${a.rating}%` : null]
+			];
+			metaItems = [d.format, d.chapters ? `${d.chapters} ch` : null, d.published, d.authors[0] ?? null];
 		} else if (d.kind === 'movie') {
 			detailRows = [['Runtime', d.runtime ? `${d.runtime} min` : null], ['Status', statusLabel], ['Director', d.director], ['Rating', a.rating ? `${a.rating}%` : null]];
 			metaItems = [d.runtime ? `${d.runtime} min` : null, a.year ? String(a.year) : null, d.director];
@@ -40,7 +50,7 @@
 	const detailRows = $derived(rows.detailRows);
 	const metaItems = $derived(rows.metaItems);
 
-	const SCHEMA_TYPE: Record<string, string> = { anime: 'TVSeries', tv: 'TVSeries', movie: 'Movie', game: 'VideoGame' };
+	const SCHEMA_TYPE: Record<string, string> = { anime: 'TVSeries', tv: 'TVSeries', manga: 'Book', movie: 'Movie', game: 'VideoGame' };
 	const jsonLd = $derived({
 		'@context': 'https://schema.org', '@type': SCHEMA_TYPE[a.kind] ?? 'CreativeWork', name: a.title,
 		...(a.alt[0] ? { alternateName: a.alt[0] } : {}),
@@ -50,7 +60,7 @@
 		genre: a.genres
 	});
 	const alt = $derived([...a.alt.slice(0, 1), a.native].filter((x) => x && x !== a.title).join('  ·  '));
-	const watchLabel = $derived(a.kind === 'game' ? 'Where to play' : 'Where to watch');
+	const watchLabel = $derived(a.kind === 'game' ? 'Where to play' : a.kind === 'manga' ? 'Where to read' : 'Where to watch');
 </script>
 
 <svelte:head>
@@ -63,10 +73,10 @@
 	{#if a.banner}
 		<div class="banner">
 			<img src={blob(a.banner)} alt="" width="1280" height="320" fetchpriority="high" />
-			<div class="banner-bar"><div class="wrap"><a class="back over" href="/">&larr; Schedule</a></div></div>
+			<div class="banner-bar"><div class="wrap"><a class="back over" href={backHref}>&larr; {backLabel}</a></div></div>
 		</div>
 	{:else}
-		<div class="wrap topbar"><a class="back" href="/">&larr; Schedule</a></div>
+		<div class="wrap topbar"><a class="back" href={backHref}>&larr; {backLabel}</a></div>
 	{/if}
 	<div class="wrap hero-in" class:pull={a.banner}>
 		<div class="poster"><img src={blob(a.cover)} alt={a.title} width="220" height="311" /></div>

@@ -11,6 +11,7 @@ const aid = (mal) => `anime:${mal}`;
 const titleCase = (s) => (s ? s.replace(/\w\S*/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase()) : s);
 const clean = (d) => (d ? d.replace(/\s+/g, ' ').trim() : null);
 const STATUS = { 'Currently Airing': 'airing', 'Finished Airing': 'finished', 'Not yet aired': 'upcoming' };
+const MANGA_STATUS = { Publishing: 'airing', Finished: 'finished', 'On Hiatus': 'airing', Discontinued: 'cancelled', 'Not yet published': 'upcoming' };
 const DAYS = { Sundays: 0, Mondays: 1, Tuesdays: 2, Wednesdays: 3, Thursdays: 4, Fridays: 5, Saturdays: 6 };
 
 let throttleMs = 400; // ~2.5/s, under Jikan's 3/s
@@ -87,17 +88,64 @@ function mapCore(m) {
 	};
 }
 
-// Per-entity enrichment: relations, recommendations, characters, streaming.
+// Manga list item (top/manga) → core EntityMeta (kind=manga; no airing schedule).
+function mapMangaCore(m) {
+	const title = m.title ?? m.title_english ?? `Manga ${m.mal_id}`;
+	const alt = [...new Set([m.title_english, ...(m.title_synonyms ?? [])].filter((x) => x && x !== title))];
+	return {
+		id: `manga:${m.mal_id}`,
+		kind: 'manga',
+		title,
+		alt,
+		native: m.title_japanese ?? null,
+		year: m.published?.prop?.from?.year ?? null,
+		cover: src(m.images?.webp?.large_image_url ?? m.images?.jpg?.large_image_url) ?? 'src:',
+		banner: null,
+		color: null,
+		genres: (m.genres ?? []).map((g) => g.name),
+		tags: [...(m.themes ?? []), ...(m.demographics ?? [])].map((t) => t.name).slice(0, 6),
+		status: MANGA_STATUS[m.status] ?? 'unknown',
+		rating: m.score ? Math.round(m.score * 10) : null,
+		ids: { mal: m.mal_id },
+		desc: clean(m.synopsis),
+		availability: [],
+		schedule: null,
+		valueAdd: { related: [], recommendations: [] },
+		characters: [],
+		details: {
+			kind: 'manga',
+			format: m.type ?? null,
+			chapters: m.chapters ?? null,
+			volumes: m.volumes ?? null,
+			authors: (m.authors ?? []).map((a) => a.name),
+			serialization: m.serializations?.[0]?.name ?? null,
+			published: m.published?.string ?? null,
+		},
+		_popularity: m.members ?? 0,
+	};
+}
+
+/** Top manga → core EntityMeta, deduped. */
+export async function fetchMangaList({ pages = 2, throttle = 400 } = {}) {
+	throttleMs = throttle;
+	const out = new Map();
+	for (let p = 1; p <= pages; p++) for (const m of await jget(`/top/manga?page=${p}`)) out.set(m.mal_id, mapMangaCore(m));
+	return [...out.values()];
+}
+
+// Per-entity enrichment (kind-aware: /anime/* or /manga/*). related/recs ref by
+// "{type}:{mal_id}" — cross-type allowed (e.g. a manga's anime adaptation).
 export async function enrich(meta) {
+	const k = meta.kind; // 'anime' | 'manga'
 	const mal = meta.id.slice(meta.id.indexOf(':') + 1);
 	const [rel, rec, chars, stream] = await Promise.all([
-		jget(`/anime/${mal}/relations`).catch(() => []),
-		jget(`/anime/${mal}/recommendations`).catch(() => []),
-		jget(`/anime/${mal}/characters`).catch(() => []),
-		jget(`/anime/${mal}/streaming`).catch(() => []),
+		jget(`/${k}/${mal}/relations`).catch(() => []),
+		jget(`/${k}/${mal}/recommendations`).catch(() => []),
+		jget(`/${k}/${mal}/characters`).catch(() => []),
+		k === 'anime' ? jget(`/${k}/${mal}/streaming`).catch(() => []) : Promise.resolve([]),
 	]);
-	meta.valueAdd.related = (rel ?? []).flatMap((g) => g.entry.filter((e) => e.type === 'anime').map((e) => aid(e.mal_id)));
-	meta.valueAdd.recommendations = (rec ?? []).slice(0, 6).map((r) => aid(r.entry.mal_id));
+	meta.valueAdd.related = (rel ?? []).flatMap((g) => g.entry.filter((e) => e.type === 'anime' || e.type === 'manga').map((e) => `${e.type}:${e.mal_id}`));
+	meta.valueAdd.recommendations = (rec ?? []).slice(0, 6).map((r) => `${k}:${r.entry.mal_id}`);
 	meta.characters = (chars ?? []).slice(0, 8).map((c) => ({
 		name: c.character?.name ?? '', image: src(c.character?.images?.webp?.image_url ?? c.character?.images?.jpg?.image_url) ?? 'src:',
 		role: c.role ?? '', va: c.voice_actors?.[0]?.person?.name ?? null, vaImage: src(c.voice_actors?.[0]?.person?.images?.jpg?.image_url),

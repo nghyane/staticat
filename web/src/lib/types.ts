@@ -1,6 +1,6 @@
 // Mirror of contract/discovery.ts. The SPA reads ONLY these shapes from R2.
-export type Kind = 'anime' | 'movie' | 'tv' | 'game';
-export const KINDS: readonly Kind[] = ['anime', 'movie', 'tv', 'game'] as const;
+export type Kind = 'anime' | 'manga' | 'movie' | 'tv' | 'game';
+export const KINDS: readonly Kind[] = ['anime', 'manga', 'movie', 'tv', 'game'] as const;
 export const isKind = (s: string): s is Kind => (KINDS as readonly string[]).includes(s);
 export type Status = 'airing' | 'upcoming' | 'finished' | 'cancelled' | 'unknown';
 
@@ -16,6 +16,7 @@ export interface Availability { provider: string; region: string; kind: string; 
 export interface Character { name: string; image: BlobToken; role: string; va: string | null; vaImage: BlobToken | null }
 export type Details =
 	| { kind: 'anime'; format: string | null; episodes: number | null; duration: number | null; studio: string | null; source: string | null; season: string | null; aired: string | null }
+	| { kind: 'manga'; format: string | null; chapters: number | null; volumes: number | null; authors: string[]; serialization: string | null; published: string | null }
 	| { kind: 'movie'; runtime: number | null; director: string | null }
 	| { kind: 'tv'; seasons: number | null }
 	| { kind: 'game'; platforms: string[]; developer: string | null };

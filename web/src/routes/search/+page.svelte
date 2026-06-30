@@ -8,9 +8,12 @@
 	let { data }: { data: PageData } = $props();
 
 	let q = $state(page.url.searchParams.get('q') ?? '');
+	let kind = $state(page.url.searchParams.get('kind') ?? '');
 	let genre = $state(page.url.searchParams.get('genre') ?? '');
 	let status = $state(page.url.searchParams.get('status') ?? '');
 	let sort = $state<'rating' | 'title' | 'year'>('rating');
+
+	const KINDS = [{ v: '', l: 'All' }, { v: 'anime', l: 'Anime' }, { v: 'manga', l: 'Manga' }];
 
 	// top genres present in the catalog (by frequency)
 	const genres = (() => {
@@ -32,7 +35,7 @@
 	const results = $derived.by(() => {
 		const term = q.trim().toLowerCase();
 		let list = data.index.filter(
-			(e) => (!genre || e.genres.includes(genre)) && (!status || e.status === status) && (!term || score(e, term) > 0)
+			(e) => (!kind || e.kind === kind) && (!genre || e.genres.includes(genre)) && (!status || e.status === status) && (!term || score(e, term) > 0)
 		);
 		if (term) list = list.sort((a, b) => score(b, term) - score(a, term) || (b.rating ?? 0) - (a.rating ?? 0));
 		else if (sort === 'title') list = [...list].sort((a, b) => a.title.localeCompare(b.title));
@@ -45,6 +48,7 @@
 	$effect(() => {
 		const p = new URLSearchParams();
 		if (q.trim()) p.set('q', q.trim());
+		if (kind) p.set('kind', kind);
 		if (genre) p.set('genre', genre);
 		if (status) p.set('status', status);
 		const qs = p.toString();
@@ -67,6 +71,11 @@
 	</div>
 
 	<div class="filters">
+		<div class="chips kinds">
+			{#each KINDS as k}
+				<button class="chip" class:on={kind === k.v} onclick={() => (kind = k.v)}>{k.l}</button>
+			{/each}
+		</div>
 		<div class="chips">
 			{#each STATUSES as s}
 				<button class="chip" class:on={status === s} onclick={() => (status = toggle(status, s))}>{s[0].toUpperCase() + s.slice(1)}</button>
