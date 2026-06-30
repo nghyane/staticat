@@ -42,11 +42,11 @@
 		} else if (d.kind === 'game') {
 			const PLAT: Record<string, string> = { windows: 'PC', mac: 'Mac', linux: 'Linux' };
 			detailRows = [
-				['Platforms', d.platforms.map((p) => PLAT[p] ?? p).join(', ') || null], ['Released', d.released],
-				['Developer', d.developer], ['Publisher', d.publisher], ['Modes', d.modes.join(', ') || null],
+				['Platforms', (d.platforms ?? []).map((p) => PLAT[p] ?? p).join(', ') || null], ['Released', d.released],
+				['Developer', d.developer], ['Publisher', d.publisher], ['Modes', (d.modes ?? []).join(', ') || null],
 				['Metacritic', a.rating ? String(a.rating) : null]
 			];
-			metaItems = [d.platforms.map((p) => PLAT[p] ?? p).join('/') || null, d.released, d.developer];
+			metaItems = [(d.platforms ?? []).map((p) => PLAT[p] ?? p).join('/') || null, d.released, d.developer];
 		} else {
 			detailRows = [['Status', statusLabel], ['Rating', a.rating ? `${a.rating}%` : null]];
 			metaItems = [a.year ? String(a.year) : null];
@@ -67,7 +67,7 @@
 			genre: a.genres
 		};
 		if (d.kind === 'game') return { ...base, gamePlatform: d.platforms, ...(d.publisher ? { publisher: d.publisher } : {}), ...(d.released ? { datePublished: d.released } : {}) };
-		if (d.kind === 'movie') return { ...base, ...(d.director ? { director: d.director } : {}), ...(d.cast.length ? { actor: d.cast.slice(0, 5) } : {}), ...(d.released ? { datePublished: d.released } : {}) };
+		if (d.kind === 'movie') return { ...base, ...(d.director ? { director: d.director } : {}), ...(d.cast?.length ? { actor: d.cast.slice(0, 5) } : {}), ...(d.released ? { datePublished: d.released } : {}) };
 		return base;
 	});
 
@@ -112,7 +112,7 @@
 			</p>
 			<div class="chips">{#each a.genres as g}<a class="chip chip-accent" href={`/genre/${slugifyGenre(g)}`}>{g}</a>{/each}</div>
 			{#if a.desc}<section class="sec"><h2 class="sec-h">About</h2><p class="desc">{a.desc}</p></section>{/if}
-			{#if d.kind === 'game' && d.screenshots.length > 0}
+			{#if d.kind === 'game' && d.screenshots?.length}
 				<section class="sec"><h2 class="sec-h">Screenshots</h2><div class="shots">{#each d.screenshots as s}<img class="shot" src={blob(s)} alt="" loading="lazy" />{/each}</div></section>
 			{/if}
 			{#if data.sameGenre.length > 0}
@@ -172,7 +172,7 @@
 			<section class="sec"><h2 class="sec-h">{d.kind === 'game' ? 'About' : 'Synopsis'}</h2><p class="desc">{a.desc}</p></section>
 		{/if}
 
-		{#if d.kind === 'movie' && d.cast.length > 0}
+		{#if d.kind === 'movie' && d.cast?.length}
 			<section class="sec">
 				<h2 class="sec-h">Cast</h2>
 				<div class="castlist">{#each d.cast as c}<span class="chip">{c}</span>{/each}</div>

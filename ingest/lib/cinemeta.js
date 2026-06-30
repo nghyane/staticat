@@ -38,7 +38,7 @@ function mapCore(m) {
 		schedule: null,
 		valueAdd: { related: [], recommendations: [] },
 		characters: [],
-		details: { kind: 'movie', runtime: null, director: null },
+		details: { kind: 'movie', runtime: null, director: null, cast: [], released: null },
 		_popularity: r10(m.imdbRating) ?? 0,
 	};
 }
