@@ -6,6 +6,9 @@
 // keep this only if you set up a relay.
 import { fetchList, fetchMangaList, enrich } from '../../ingest/lib/jikan.js';
 import { paths, hash, buildEntities, buildListings } from '../../ingest/lib/contract.js';
+// Static AniList supplement (banner/color) — built once locally
+// (ingest/supplement-anilist.mjs), bundled here. Re-run + redeploy to refresh.
+import supplements from '../../ingest/_supplements.json';
 
 interface R2Bucket {
 	get(key: string): Promise<{ text(): Promise<string> } | null>;
@@ -38,6 +41,14 @@ async function ingest(env: Env): Promise<{ titles: number; changed: number; enri
 		...(await fetchList({ airingPages: air, popularPages: pop, throttle: 380 })),
 		...(await fetchMangaList({ pages: manga, throttle: 380 }))
 	];
+
+	// 1b. apply the AniList static supplement (banner/color — Jikan has no banner)
+	const supp = supplements as Record<string, { banner?: string; color?: string }>;
+	let applied = 0;
+	for (const m of core) {
+		const s = supp[m.id];
+		if (s) { if (s.banner) m.banner = s.banner; if (s.color) m.color = s.color; applied++; }
+	}
 
 	// 2. carry prev enrichment forward; enrich un-enriched ones up to budget
 	//    (progressive — every run fully completes a slice). Schedule stays fresh.
@@ -88,7 +99,7 @@ async function ingest(env: Env): Promise<{ titles: number; changed: number; enri
 	for (const [p, v] of [...pointers, ...calendars]) await put(key(p), JSON.stringify(v));
 	for (const [k, body] of headPuts) await put(k, body);
 	await env.DATA.put('v1/_heads.json', JSON.stringify(idx), { httpMetadata: { cacheControl: 'no-store' } });
-	return { titles: core.length, changed, enriched };
+	return { titles: core.length, changed, enriched, suppKeys: Object.keys(supp).length, applied };
 }
 
 export default {

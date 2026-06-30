@@ -112,3 +112,31 @@ export async function fetchPopular(perPage = 30, page = 1, relayUrl = '') {
 	const json = await gql(POPULAR, { perPage, page }, relayUrl);
 	return withMal(json?.data?.Page?.media ?? []);
 }
+
+// Supplement Jikan with the bits AniList does better — batched by MAL id.
+const SUPP = `query ($ids: [Int], $type: MediaType) {
+  Page(perPage: 50) { media(idMal_in: $ids, type: $type) {
+    idMal bannerImage coverImage { color } nextAiringEpisode { episode airingAt }
+  } }
+}`;
+
+/** AniList supplement for MAL ids: banner (Jikan has none), cover color, and
+ *  the EXACT next-airing episode (anime). type = 'ANIME' | 'MANGA'.
+ *  Returns Map<malId, { banner, color, schedule }>. Needs a non-CF relay from
+ *  a CF Worker (AniList blocks CF egress). */
+export async function fetchSupplements(malIds, type, relayUrl = '') {
+	const out = new Map();
+	for (let i = 0; i < malIds.length; i += 50) {
+		const ids = malIds.slice(i, i + 50).map(Number);
+		const json = await gql(SUPP, { ids, type }, relayUrl);
+		for (const m of json?.data?.Page?.media ?? []) {
+			if (!m.idMal) continue;
+			out.set(String(m.idMal), {
+				banner: m.bannerImage ? `src:${m.bannerImage}` : null,
+				color: m.coverImage?.color ?? null,
+				schedule: m.nextAiringEpisode ? { nextEp: m.nextAiringEpisode.episode, airAt: m.nextAiringEpisode.airingAt } : null,
+			});
+		}
+	}
+	return out;
+}
