@@ -12,8 +12,8 @@
 	const verticals = [
 		{ label: 'Anime', href: '/' },
 		{ label: 'Manga', href: '/manga' },
-		{ label: 'Movies', href: '/movie', soon: true },
-		{ label: 'Games', href: '/game', soon: true }
+		{ label: 'Movies', href: '/movie' },
+		{ label: 'Games', href: '/game' }
 	];
 	const isOn = (href: string) => (href === '/' ? page.url.pathname === '/' || page.url.pathname.startsWith('/anime') : page.url.pathname.startsWith(href));
 
@@ -44,9 +44,7 @@
 		<nav class="verticals" aria-label="Browse by type">
 			{#each verticals as v (v.href)}
 				{@const on = isOn(v.href)}
-				<a href={v.href} class="tab" class:on class:soon={v.soon} aria-current={on ? 'page' : undefined}>
-					{v.label}{#if v.soon}<span class="badge">soon</span>{/if}
-				</a>
+				<a href={v.href} class="tab" class:on aria-current={on ? 'page' : undefined}>{v.label}</a>
 			{/each}
 		</nav>
 
@@ -78,9 +76,6 @@
 	.tab:hover { color: var(--ink); }
 	.tab.on { color: var(--ink); font-weight: 600; }
 	.tab.on::after { content: ''; position: absolute; left: 0.6rem; right: 0.6rem; bottom: -1px; height: 2px; background: var(--accent); border-radius: 2px 2px 0 0; }
-	.tab.soon { color: var(--faint); font-weight: 500; }       /* empty verticals, muted */
-	.tab.soon:hover { color: var(--muted); }
-	.badge { font-size: 0.56rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--faint); background: var(--bg-soft); padding: 0.1rem 0.3rem; border-radius: 4px; }
 
 	/* tools (the find/view axis) — right-aligned group */
 	.tools { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; }
@@ -97,6 +92,6 @@
 	.search .ph { flex: 1; min-width: 0; }
 	main { padding-bottom: 5rem; }
 	.ftr { border-top: 1px solid var(--line); color: var(--faint); font-size: var(--t-xs); padding-block: 2rem; }
-	@media (max-width: 700px) { .tool span, .badge { display: none; } .tool { padding: 0 0.5rem; } }
+	@media (max-width: 700px) { .tool span { display: none; } .tool { padding: 0 0.5rem; } }
 	@media (max-width: 560px) { .search { width: 2.25rem; padding: 0; justify-content: center; } .search .ph { display: none; } .hdr-in { gap: 1rem; } }
 </style>

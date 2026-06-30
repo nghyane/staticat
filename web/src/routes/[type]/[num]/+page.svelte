@@ -8,7 +8,7 @@
 	const a = $derived(data.meta);
 
 	const num = (n: number | null) => (n ? n.toLocaleString('en-US') : null);
-	const STATUS_LABEL: Record<string, string | null> = { airing: 'Airing', finished: 'Finished', upcoming: 'Upcoming', cancelled: 'Cancelled', unknown: null };
+	const STATUS_LABEL: Record<string, string | null> = { airing: 'Airing', finished: 'Finished', upcoming: 'Upcoming', released: 'Released', cancelled: 'Cancelled', unknown: null };
 	const statusLabel = $derived(a.kind === 'manga' && a.status === 'airing' ? 'Publishing' : (STATUS_LABEL[a.status] ?? null));
 	const backHref = $derived(a.kind === 'anime' ? '/' : `/${a.kind}`);
 	const backLabel = $derived(a.kind === 'anime' ? 'Schedule' : 'Browse');

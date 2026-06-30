@@ -6,6 +6,8 @@ import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fetchList, fetchMangaList, enrich } from './lib/jikan.js';
+import { fetchMovies, enrichMovie } from './lib/cinemeta.js';
+import { fetchGames, enrichGame } from './lib/steam.js';
 import { paths, hash, buildEntities, buildListings } from './lib/contract.js';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -16,11 +18,15 @@ const MANGA_PAGES = Number(process.env.MANGA_PAGES ?? 2);
 const now = Math.floor(Date.now() / 1000);
 
 // Jikan: anime (airing→feed/calendar, popular→depth) + manga; full enrich locally.
-const seed = [
+const raw = [
 	...(await fetchList({ airingPages: AIRING_PAGES, popularPages: POPULAR_PAGES })),
-	...(await fetchMangaList({ pages: MANGA_PAGES }))
+	...(await fetchMangaList({ pages: MANGA_PAGES })),
+	...(await fetchMovies({ pages: Number(process.env.MOVIE_PAGES ?? 2) }).catch(() => [])),
+	...(await fetchGames().catch(() => []))
 ];
-for (const m of seed) await enrich(m);
+const enrichBy = (m) => (m.kind === 'movie' ? enrichMovie(m) : m.kind === 'game' ? enrichGame(m) : enrich(m));
+const seed = [];
+for (const m of raw) if ((await enrichBy(m)) !== null) seed.push(m); // drop non-game apps
 
 const entities = buildEntities(seed);
 const { pointers, calendars, searchIndex } = buildListings(seed);

@@ -10,7 +10,7 @@
 	let { data }: { data: PageData } = $props();
 
 	const PAGE_SIZE = 30;
-	const KINDS = [{ v: '', l: 'All' }, { v: 'anime', l: 'Anime' }, { v: 'manga', l: 'Manga' }];
+	const KINDS = [{ v: '', l: 'All' }, { v: 'anime', l: 'Anime' }, { v: 'manga', l: 'Manga' }, { v: 'movie', l: 'Movies' }, { v: 'game', l: 'Games' }];
 
 	const p0 = page.url.searchParams;
 	let q = $state(p0.get('q') ?? '');

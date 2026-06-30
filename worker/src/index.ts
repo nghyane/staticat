@@ -5,7 +5,13 @@
 // but writes via the R2 binding (no S3 creds). GitHub Actions is the default;
 // keep this only if you set up a relay.
 import { fetchList, fetchMangaList, enrich } from '../../ingest/lib/jikan.js';
+import { fetchMovies, enrichMovie } from '../../ingest/lib/cinemeta.js';
+import { fetchGames, enrichGame } from '../../ingest/lib/steam.js';
 import { paths, hash, buildEntities, buildListings } from '../../ingest/lib/contract.js';
+
+// Per-entity enrich, dispatched by kind. enrichGame may return null (DLC/
+// hardware) → caller drops it.
+const enrichBy = (m: any) => (m.kind === 'movie' ? enrichMovie(m) : m.kind === 'game' ? enrichGame(m) : enrich(m));
 // Static AniList supplement (banner/color) — built once locally
 // (ingest/supplement-anilist.mjs), bundled here. Re-run + redeploy to refresh.
 import supplements from '../../ingest/_supplements.json';
@@ -15,7 +21,7 @@ interface R2Bucket {
 	put(key: string, value: string, opts?: { httpMetadata?: { contentType?: string; cacheControl?: string } }): Promise<unknown>;
 	delete(key: string): Promise<unknown>;
 }
-interface Env { DATA: R2Bucket; AIRING_PAGES?: string; POPULAR_PAGES?: string; MANGA_PAGES?: string; ENRICH_LIMIT?: string; INGEST_SECRET?: string }
+interface Env { DATA: R2Bucket; AIRING_PAGES?: string; POPULAR_PAGES?: string; MANGA_PAGES?: string; MOVIE_PAGES?: string; ENRICH_LIMIT?: string; INGEST_SECRET?: string }
 
 const POINTER = 'public, max-age=30, stale-while-revalidate=300, stale-if-error=86400';
 const POPULAR = 'public, max-age=300, stale-while-revalidate=3600';
@@ -30,16 +36,19 @@ const cacheFor = (k: string) =>
 const key = (p: string) => p.replace(/^\//, '');
 
 async function ingest(env: Env): Promise<{ titles: number; changed: number; enriched: number }> {
-	const air = Number(env.AIRING_PAGES ?? 2), pop = Number(env.POPULAR_PAGES ?? 6), manga = Number(env.MANGA_PAGES ?? 4), lim = Number(env.ENRICH_LIMIT ?? 30);
+	const air = Number(env.AIRING_PAGES ?? 2), pop = Number(env.POPULAR_PAGES ?? 6), manga = Number(env.MANGA_PAGES ?? 4), movies = Number(env.MOVIE_PAGES ?? 2), lim = Number(env.ENRICH_LIMIT ?? 30);
 	const get = async (k: string) => (await env.DATA.get(k))?.text() ?? null;
 	const put = (k: string, v: string) => env.DATA.put(k, v, { httpMetadata: { contentType: 'application/json', cacheControl: cacheFor(k) } });
 	const now = Math.floor(Date.now() / 1000);
 	const idx = JSON.parse((await get('v1/_heads.json')) || '{}'); // { id: { rev, hash, enriched } }
 
-	// 1. fast list (anime: schedule/feed + manga) — no per-entity calls
+	// 1. catalogs (anime+manga via Jikan, movies via Cinemeta, games via Steam)
+	//    — all keyless. Cards come from these list calls; full detail is enriched.
 	const core = [
 		...(await fetchList({ airingPages: air, popularPages: pop, throttle: 380 })),
-		...(await fetchMangaList({ pages: manga, throttle: 380 }))
+		...(await fetchMangaList({ pages: manga, throttle: 380 })),
+		...(await fetchMovies({ pages: movies, throttle: 300 }).catch(() => [])),
+		...(await fetchGames({ throttle: 400 }).catch(() => []))
 	];
 
 	// 1b. apply the AniList static supplement (banner/color — Jikan has no banner)
@@ -59,11 +68,11 @@ async function ingest(env: Env): Promise<{ titles: number; changed: number; enri
 		let meta = c;
 		if (prev) {
 			const pm = JSON.parse((await get(key(paths.entityMeta(c.id, prev.rev)))) || 'null');
-			if (pm) meta = { ...c, banner: c.banner ?? pm.banner, characters: pm.characters, valueAdd: pm.valueAdd, availability: pm.availability };
-			if (!prev.enriched && budget > 0) { await enrich(meta); meta._enriched = true; budget--; enriched++; }
+			if (pm) meta = { ...c, banner: c.banner ?? pm.banner, characters: pm.characters, valueAdd: pm.valueAdd, availability: c.availability?.length ? c.availability : pm.availability };
+			if (!prev.enriched && budget > 0) { if ((await enrichBy(meta)) === null) continue; meta._enriched = true; budget--; enriched++; }
 			else if (prev.enriched) meta._enriched = true;
 		} else if (budget > 0) {
-			await enrich(meta); meta._enriched = true; budget--; enriched++;
+			if ((await enrichBy(meta)) === null) continue; meta._enriched = true; budget--; enriched++;
 		}
 		metas.push(meta);
 	}

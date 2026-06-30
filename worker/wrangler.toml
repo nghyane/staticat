@@ -12,7 +12,8 @@ crons = ["0 */2 * * *"]
 AIRING_PAGES = "2"   # seasons/now → schedule/feed
 POPULAR_PAGES = "6"  # top/anime → catalog breadth (search covers classics)
 MANGA_PAGES = "4"    # top/manga → multi-type search/browse
-ENRICH_LIMIT = "30"  # per-entity (relations/recs/chars/streaming) calls per run
+MOVIE_PAGES = "2"    # Cinemeta top movies (keyless)
+ENRICH_LIMIT = "30"  # per-entity enrich calls per run (Jikan/Cinemeta/Steam)
 
 # SPA reads this bucket (PUBLIC_DATA_BASE); worker writes /v1/** via binding.
 # Create once:  wrangler r2 bucket create watchdex-data
