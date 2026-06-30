@@ -16,11 +16,12 @@ async function cget(path) {
 	return r.json();
 }
 
-// catalog meta (basic) → core EntityMeta
-function mapCore(m) {
+// catalog meta (basic) → core EntityMeta. type = 'movie' | 'series'(→tv).
+function mapCore(m, type = 'movie') {
+	const kind = type === 'series' ? 'tv' : 'movie';
 	return {
-		id: `movie:${m.id}`,
-		kind: 'movie',
+		id: `${kind}:${m.id}`,
+		kind,
 		title: m.name,
 		alt: [],
 		native: null,
@@ -38,39 +39,45 @@ function mapCore(m) {
 		schedule: null,
 		valueAdd: { related: [], recommendations: [] },
 		characters: [],
-		details: { kind: 'movie', runtime: null, director: null, cast: [], released: null },
+		details: kind === 'tv'
+			? { kind: 'tv', seasons: null, cast: [], released: null }
+			: { kind: 'movie', runtime: null, director: null, cast: [], released: null },
 		_popularity: r10(m.imdbRating) ?? 0,
 	};
 }
 
-/** Top movies (keyless). Cinemeta 'top' catalog ≈ 100 with skip paging. */
-export async function fetchMovies({ pages = 2, throttle = 300 } = {}) {
-	throttleMs = throttle;
+async function fetchCatalog(type, pages) {
 	const out = new Map();
 	for (let p = 0; p < pages; p++) {
-		const path = p === 0 ? `/catalog/movie/top.json` : `/catalog/movie/top/skip=${p * 100}.json`;
+		const path = p === 0 ? `/catalog/${type}/top.json` : `/catalog/${type}/top/skip=${p * 100}.json`;
 		const j = await cget(path).catch(() => ({ metas: [] }));
-		for (const m of j.metas ?? []) out.set(m.id, mapCore(m));
+		for (const m of j.metas ?? []) out.set(m.id, mapCore(m, type));
 	}
 	return [...out.values()];
 }
 
-/** Per-movie full meta: background (banner), description, genres, runtime, director. */
-export async function enrichMovie(meta) {
+/** Top movies / series (keyless). */
+export async function fetchMovies({ pages = 2, throttle = 300 } = {}) { throttleMs = throttle; return fetchCatalog('movie', pages); }
+export async function fetchSeries({ pages = 2, throttle = 300 } = {}) { throttleMs = throttle; return fetchCatalog('series', pages); }
+
+async function enrichCinemeta(meta, type) {
 	const imdb = meta.id.slice(meta.id.indexOf(':') + 1);
-	const m = (await cget(`/meta/movie/${imdb}.json`)).meta;
+	const m = (await cget(`/meta/${type}/${imdb}.json`)).meta;
 	if (!m) return meta;
 	meta.banner = src(m.background) ?? meta.banner;
 	meta.desc = clean(m.description) ?? meta.desc;
 	if (m.genres?.length) meta.genres = m.genres;
 	meta.year = year(m.year ?? m.releaseInfo) ?? meta.year;
 	meta.rating = r10(m.imdbRating) ?? meta.rating;
-	meta.details = {
-		kind: 'movie',
-		runtime: parseInt(String(m.runtime ?? '').match(/\d+/)?.[0] ?? '', 10) || null,
-		director: (Array.isArray(m.director) ? m.director[0] : m.director) ?? null,
-		cast: (m.cast ?? []).slice(0, 10),
-		released: m.released ?? (m.year ? String(m.year) : null),
-	};
+	const cast = (m.cast ?? []).slice(0, 10);
+	const released = m.released ?? (m.year ? String(m.year) : null);
+	if (type === 'series') {
+		const seasons = new Set((m.videos ?? []).map((v) => v.season).filter((s) => s > 0));
+		meta.details = { kind: 'tv', seasons: seasons.size || null, cast, released };
+	} else {
+		meta.details = { kind: 'movie', runtime: parseInt(String(m.runtime ?? '').match(/\d+/)?.[0] ?? '', 10) || null, director: (Array.isArray(m.director) ? m.director[0] : m.director) ?? null, cast, released };
+	}
 	return meta;
 }
+export const enrichMovie = (meta) => enrichCinemeta(meta, 'movie');
+export const enrichSeries = (meta) => enrichCinemeta(meta, 'series');

@@ -1,17 +1,12 @@
 <script lang="ts">
-	import BrowseGrid from '$lib/components/BrowseGrid.svelte';
+	import BrowseLanding from '$lib/components/BrowseLanding.svelte';
 	import type { PageData } from './$types';
 	let { data }: { data: PageData } = $props();
 	const label = $derived(data.kind[0].toUpperCase() + data.kind.slice(1));
 </script>
 
-<svelte:head>
-	<title>{label} — browse | Watchdex</title>
-	<meta name="description" content={`Browse popular ${data.kind} with scores, genres and where to watch.`} />
-</svelte:head>
-
 {#if data.items.length > 0}
-	<BrowseGrid eyebrow="Browse" title={`Popular ${data.kind}`} items={data.items} />
+	<BrowseLanding kind={data.kind} items={data.items} />
 {:else}
 	<div class="wrap empty">
 		<p class="eyebrow">{label}</p>

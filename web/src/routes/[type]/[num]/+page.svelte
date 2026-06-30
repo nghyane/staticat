@@ -39,6 +39,9 @@
 		} else if (d.kind === 'movie') {
 			detailRows = [['Runtime', d.runtime ? `${d.runtime} min` : null], ['Released', d.released], ['Director', d.director], ['IMDb', a.rating ? `${(a.rating / 10).toFixed(1)}` : null]];
 			metaItems = [d.runtime ? `${d.runtime} min` : null, d.released ?? (a.year ? String(a.year) : null), d.director];
+		} else if (d.kind === 'tv') {
+			detailRows = [['Seasons', d.seasons ? String(d.seasons) : null], ['Status', statusLabel], ['Released', d.released], ['IMDb', a.rating ? `${(a.rating / 10).toFixed(1)}` : null]];
+			metaItems = [d.seasons ? `${d.seasons} season${d.seasons > 1 ? 's' : ''}` : null, d.released ?? (a.year ? String(a.year) : null)];
 		} else if (d.kind === 'game') {
 			const PLAT: Record<string, string> = { windows: 'PC', mac: 'Mac', linux: 'Linux' };
 			detailRows = [
@@ -76,6 +79,7 @@
 		const t = a.title;
 		if (a.kind === 'game') return `${t} — reviews, platforms & where to buy | Watchdex`;
 		if (a.kind === 'movie') return `${t}${a.year ? ` (${a.year})` : ''} — where to watch, cast & rating | Watchdex`;
+		if (a.kind === 'tv') return `${t} — episodes, cast & where to watch | Watchdex`;
 		if (a.kind === 'manga') return `${t} — chapters, author & where to read | Watchdex`;
 		return `${t} — schedule, where to watch & cast | Watchdex`;
 	});
@@ -148,7 +152,7 @@
 			<h1 class="h1">{a.title}</h1>
 			{#if alt}<p class="alt">{alt}</p>{/if}
 			<p class="metaline">
-				{#if a.rating}<span class="score" class:hi={a.rating >= 75}>{a.rating}%</span>{/if}
+				{#if a.rating}<span class="score" class:hi={a.rating >= 75}>{a.kind === 'movie' || a.kind === 'tv' ? `★ ${(a.rating / 10).toFixed(1)}` : `${a.rating}%`}</span>{/if}
 				{#each metaItems as m}<span class="m">{m}</span>{/each}
 			</p>
 			<div class="chips">
@@ -172,7 +176,7 @@
 			<section class="sec"><h2 class="sec-h">{d.kind === 'game' ? 'About' : 'Synopsis'}</h2><p class="desc">{a.desc}</p></section>
 		{/if}
 
-		{#if d.kind === 'movie' && d.cast?.length}
+		{#if (d.kind === 'movie' || d.kind === 'tv') && d.cast?.length}
 			<section class="sec">
 				<h2 class="sec-h">Cast</h2>
 				<div class="castlist">{#each d.cast as c}<span class="chip">{c}</span>{/each}</div>

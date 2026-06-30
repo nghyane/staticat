@@ -5,13 +5,13 @@
 // but writes via the R2 binding (no S3 creds). GitHub Actions is the default;
 // keep this only if you set up a relay.
 import { fetchList, fetchMangaList, enrich } from '../../ingest/lib/jikan.js';
-import { fetchMovies, enrichMovie } from '../../ingest/lib/cinemeta.js';
+import { fetchMovies, enrichMovie, fetchSeries, enrichSeries } from '../../ingest/lib/cinemeta.js';
 import { fetchGames, enrichGame } from '../../ingest/lib/steam.js';
 import { paths, hash, buildEntities, buildListings } from '../../ingest/lib/contract.js';
 
 // Per-entity enrich, dispatched by kind. enrichGame may return null (DLC/
 // hardware) → caller drops it.
-const enrichBy = (m: any) => (m.kind === 'movie' ? enrichMovie(m) : m.kind === 'game' ? enrichGame(m) : enrich(m));
+const enrichBy = (m: any) => (m.kind === 'movie' ? enrichMovie(m) : m.kind === 'tv' ? enrichSeries(m) : m.kind === 'game' ? enrichGame(m) : enrich(m));
 // Static AniList supplement (banner/color) — built once locally
 // (ingest/supplement-anilist.mjs), bundled here. Re-run + redeploy to refresh.
 import supplements from '../../ingest/_supplements.json';
@@ -48,6 +48,7 @@ async function ingest(env: Env): Promise<{ titles: number; changed: number; enri
 		await fetchList({ airingPages: air, popularPages: pop, throttle: 380 }),
 		await fetchMangaList({ pages: manga, throttle: 380 }),
 		await fetchMovies({ pages: movies, throttle: 300 }).catch(() => []),
+		await fetchSeries({ pages: movies, throttle: 300 }).catch(() => []),
 		await fetchGames({ throttle: 400 }).catch(() => [])
 	];
 	// interleave so the enrich budget spreads across kinds (else games starve)

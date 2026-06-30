@@ -6,7 +6,7 @@ import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fetchList, fetchMangaList, enrich } from './lib/jikan.js';
-import { fetchMovies, enrichMovie } from './lib/cinemeta.js';
+import { fetchMovies, enrichMovie, fetchSeries, enrichSeries } from './lib/cinemeta.js';
 import { fetchGames, enrichGame } from './lib/steam.js';
 import { paths, hash, buildEntities, buildListings } from './lib/contract.js';
 
@@ -22,9 +22,10 @@ const raw = [
 	...(await fetchList({ airingPages: AIRING_PAGES, popularPages: POPULAR_PAGES })),
 	...(await fetchMangaList({ pages: MANGA_PAGES })),
 	...(await fetchMovies({ pages: Number(process.env.MOVIE_PAGES ?? 2) }).catch(() => [])),
+	...(await fetchSeries({ pages: Number(process.env.MOVIE_PAGES ?? 2) }).catch(() => [])),
 	...(await fetchGames().catch(() => []))
 ];
-const enrichBy = (m) => (m.kind === 'movie' ? enrichMovie(m) : m.kind === 'game' ? enrichGame(m) : enrich(m));
+const enrichBy = (m) => (m.kind === 'movie' ? enrichMovie(m) : m.kind === 'tv' ? enrichSeries(m) : m.kind === 'game' ? enrichGame(m) : enrich(m));
 const seed = [];
 for (const m of raw) if ((await enrichBy(m)) !== null) seed.push(m); // drop non-game apps
 

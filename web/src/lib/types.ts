@@ -18,7 +18,7 @@ export type Details =
 	| { kind: 'anime'; format: string | null; episodes: number | null; duration: number | null; studio: string | null; source: string | null; season: string | null; aired: string | null }
 	| { kind: 'manga'; format: string | null; chapters: number | null; volumes: number | null; authors: string[]; serialization: string | null; published: string | null }
 	| { kind: 'movie'; runtime: number | null; director: string | null; cast: string[]; released: string | null }
-	| { kind: 'tv'; seasons: number | null }
+	| { kind: 'tv'; seasons: number | null; cast: string[]; released: string | null }
 	| { kind: 'game'; platforms: string[]; developer: string | null; publisher: string | null; modes: string[]; released: string | null; screenshots: string[] };
 
 /** /v1/entity/{kind}/{num}/head.json — pointer */

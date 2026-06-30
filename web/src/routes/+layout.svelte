@@ -13,6 +13,7 @@
 		{ label: 'Anime', href: '/' },
 		{ label: 'Manga', href: '/manga' },
 		{ label: 'Movies', href: '/movie' },
+		{ label: 'TV', href: '/tv' },
 		{ label: 'Games', href: '/game' }
 	];
 	const isOn = (href: string) => (href === '/' ? page.url.pathname === '/' || page.url.pathname.startsWith('/anime') : page.url.pathname.startsWith(href));
