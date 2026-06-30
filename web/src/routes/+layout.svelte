@@ -5,7 +5,6 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
 
 	let { children } = $props();
 
@@ -15,12 +14,6 @@
 		{ label: 'Movies', href: '/movie' },
 		{ label: 'Games', href: '/game' }
 	];
-
-	let q = $state('');
-	function search(e: SubmitEvent) {
-		e.preventDefault();
-		goto(q.trim() ? `/search?q=${encodeURIComponent(q.trim())}` : '/search');
-	}
 
 	// One shared interval drives every [data-airat] countdown. Re-queried each
 	// tick so client navigation needs no re-binding. Zero layout shift: the
@@ -53,10 +46,10 @@
 			{/each}
 			<a href="/calendar" class="tab" class:on={page.url.pathname.startsWith('/calendar')}>Schedule</a>
 		</nav>
-		<form class="search" role="search" onsubmit={search}>
+		<a class="search" class:on={page.url.pathname.startsWith('/search')} href="/search" aria-label="Search anime & manga">
 			<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-			<input type="search" placeholder="Search" aria-label="Search" bind:value={q} />
-		</form>
+			<span class="ph">Search</span>
+		</a>
 	</div>
 </header>
 
@@ -74,11 +67,11 @@
 	.tab:hover { color: var(--ink); }
 	.tab.on { color: var(--ink); font-weight: 600; }
 	.tab.on::after { content: ''; position: absolute; left: 0.6rem; right: 0.6rem; bottom: -1px; height: 2px; background: var(--accent); border-radius: 2px 2px 0 0; }
-	.search { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; align-self: center; width: min(16rem, 32vw); height: 2.25rem; padding: 0 0.8rem; background: var(--bg-soft); border-radius: 10px; color: var(--faint); transition: box-shadow .15s; }
-	.search:focus-within { box-shadow: 0 0 0 2px var(--accent); }
-	.search input { flex: 1; min-width: 0; border: 0; background: none; outline: none; font: inherit; font-size: var(--t-sm); color: var(--ink); }
-	.search input::placeholder { color: var(--faint); }
+	.search { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; align-self: center; width: min(16rem, 32vw); height: 2.25rem; padding: 0 0.8rem; background: var(--bg-soft); border-radius: 10px; color: var(--faint); font-size: var(--t-sm); transition: color .15s, box-shadow .15s; }
+	.search:hover { color: var(--muted); }
+	.search.on, .search:focus-visible { box-shadow: 0 0 0 2px var(--accent); color: var(--muted); }
+	.search .ph { flex: 1; min-width: 0; }
 	main { padding-bottom: 5rem; }
 	.ftr { border-top: 1px solid var(--line); color: var(--faint); font-size: var(--t-xs); padding-block: 2rem; }
-	@media (max-width: 560px) { .search { width: 2.25rem; padding: 0; justify-content: center; } .search input { display: none; } .hdr-in { gap: 1rem; } }
+	@media (max-width: 560px) { .search { width: 2.25rem; padding: 0; justify-content: center; } .search .ph { display: none; } .hdr-in { gap: 1rem; } }
 </style>
