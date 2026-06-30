@@ -1,0 +1,23 @@
+<script lang="ts">
+	import MediaCard from './MediaCard.svelte';
+	import type { CatalogEntry } from '$lib/types';
+	let { eyebrow, title, items }: { eyebrow: string; title: string; items: CatalogEntry[] } = $props();
+</script>
+
+<div class="wrap page">
+	<header class="head">
+		<p class="eyebrow">{eyebrow}</p>
+		<h1>{title}</h1>
+		<p class="count">{items.length} title{items.length === 1 ? '' : 's'}</p>
+	</header>
+	<div class="grid">{#each items as a (a.id)}<MediaCard {a} />{/each}</div>
+</div>
+
+<style>
+	.page { padding-top: 2.5rem; }
+	.head { margin-bottom: 2rem; }
+	.head h1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.03em; margin-top: 0.4rem; }
+	.head .count { color: var(--faint); font-size: var(--t-sm); margin-top: 0.5rem; }
+	.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 1.9rem 1.2rem; }
+	@media (max-width: 560px) { .grid { grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 1.4rem 0.8rem; } }
+</style>

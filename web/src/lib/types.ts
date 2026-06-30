@@ -60,9 +60,12 @@ export interface CatalogEntry {
 	rating: number | null;
 	alt?: string[];
 	schedule?: Schedule | null;
+	season?: string | null;
 }
 
 export interface SearchHead { ver: number; hash: string }
+
+export const slugifyGenre = (g: string): string => g.toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-');
 
 /** Small display meta for a card (CatalogEntry carries no precomputed string). */
 export const cardMeta = (e: CatalogEntry): string => [e.year, e.genres[0]].filter(Boolean).join(' · ');

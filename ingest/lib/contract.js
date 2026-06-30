@@ -31,6 +31,7 @@ const CARD_KEYS = ['id', 'kind', 'title', 'cover', 'year', 'status', 'genres', '
 export function toCatalogEntry(m) {
 	const c = {};
 	for (const k of CARD_KEYS) c[k] = m[k];
+	c.season = m.details?.season ?? null; // for /season browse
 	return c;
 }
 

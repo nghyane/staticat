@@ -84,6 +84,7 @@ export interface CatalogEntry {
 	rating: number | null;
 	alt?: string[]; // search
 	schedule?: Schedule | null; // countdown trên card
+	season?: string | null; // /season browse
 }
 
 /** Derive CatalogEntry từ EntityMeta — pure pick, không soạn tay. */
