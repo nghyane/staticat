@@ -7,6 +7,34 @@ export const SCHEMA = 'v1';
 export const KINDS = ['anime', 'movie', 'game'];
 const P = `/${SCHEMA}`;
 
+// Fast sync content hash (FNV-1a, base36). Good enough for change detection;
+// no crypto dep so it runs anywhere (node / worker / Deno).
+function hash(s) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h + (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24)) >>> 0;
+  }
+  return h.toString(36);
+}
+
+/** Delta: given the assembled files and the previous content hashes, return
+ *  only the files that CHANGED (puts), the new hash map, and orphans to delete.
+ *  Lets the writer touch ~home/index + changed entities instead of rewriting
+ *  the whole catalog every run (immutable + ghi-delta). */
+export function diff(files, prevHashes = {}) {
+  const hashes = {};
+  const puts = new Map();
+  for (const [path, value] of files) {
+    const json = JSON.stringify(value);
+    const h = hash(json);
+    hashes[path] = h;
+    if (prevHashes[path] !== h) puts.set(path, json);
+  }
+  const dels = Object.keys(prevHashes).filter((p) => !(p in hashes));
+  return { puts, hashes, dels };
+}
+
 export const paths = {
   manifest: () => `${P}/manifest.json`,
   index: (k) => `${P}/${k}/index.json`,
