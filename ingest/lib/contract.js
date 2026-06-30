@@ -48,7 +48,7 @@ function isoWeek(epochS) {
 export function buildEntities(seed) {
 	const known = new Set(seed.map((e) => e.id));
 	return seed.map((e) => {
-		const { _popularity, ...meta } = e;
+		const { _popularity, _enriched, ...meta } = e; // strip transient fields
 		return {
 			...meta,
 			valueAdd: {

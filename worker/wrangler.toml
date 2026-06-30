@@ -2,19 +2,20 @@ name = "watchdex-ingest"
 main = "src/index.ts"
 compatibility_date = "2026-06-19"
 
-# Autopilot: every 6 hours pull AniList -> assemble() -> write the /v1 layout to
-# R2. Light job (few GraphQL calls + R2 binding puts), fits Worker free limits.
+# Autopilot: every 2h pull Jikan (MAL — no key, not CF-blocked) -> write /v1 to
+# R2 via binding (no S3 key). Fast list keeps schedule fresh; per-entity enrich
+# is bounded per run (ENRICH_LIMIT) and progressive, so it fits Worker limits.
 [triggers]
-crons = ["0 */6 * * *"]
+crons = ["0 */2 * * *"]
 
 [vars]
-AIRING_PAGES = "3"  # 50/page currently-airing → feed/calendar
-POPULAR_PAGES = "4" # 50/page top popular → catalog depth (related resolves)
+AIRING_PAGES = "2"   # seasons/now → schedule/feed
+POPULAR_PAGES = "2"  # top/anime → catalog depth (related resolves)
+ENRICH_LIMIT = "30"  # per-entity (relations/recs/chars/streaming) calls per run
 
-# The SPA reads this bucket via its custom domain (PUBLIC_DATA_BASE); the worker
-# writes /v1/**. Create once:  wrangler r2 bucket create watchdex-data
-# Manual run:  curl -H "authorization: Bearer $INGEST_SECRET" https://<worker>/ingest
-# Set secret:  wrangler secret put INGEST_SECRET
+# SPA reads this bucket (PUBLIC_DATA_BASE); worker writes /v1/** via binding.
+# Create once:  wrangler r2 bucket create watchdex-data
+# Manual run:   curl https://<worker>/ingest   (or behind INGEST_SECRET)
 [[r2_buckets]]
 binding = "DATA"
 bucket_name = "watchdex-data"

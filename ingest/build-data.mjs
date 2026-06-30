@@ -5,19 +5,17 @@
 import { writeFile, mkdir, rm } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fetchAniList, fetchPopular } from './lib/anilist.js';
+import { fetchCatalog } from './lib/jikan.js';
 import { paths, hash, buildEntities, buildListings } from './lib/contract.js';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const STATIC = join(ROOT, 'web', 'static');
-const AIRING_PAGES = Number(process.env.AIRING_PAGES ?? process.env.PAGES ?? 3);
-const POPULAR_PAGES = Number(process.env.POPULAR_PAGES ?? 4);
+const AIRING_PAGES = Number(process.env.AIRING_PAGES ?? 2);
+const POPULAR_PAGES = Number(process.env.POPULAR_PAGES ?? 2);
 const now = Math.floor(Date.now() / 1000);
 
-let seed = [];
-for (let p = 1; p <= AIRING_PAGES; p++) seed.push(...(await fetchAniList(50, p))); // feed/calendar
-for (let p = 1; p <= POPULAR_PAGES; p++) seed.push(...(await fetchPopular(50, p))); // catalog depth → related resolves
-seed = [...new Map(seed.map((e) => [e.id, e])).values()];
+// Jikan: airing → feed/calendar; popular → catalog depth; full enrich locally.
+const seed = await fetchCatalog({ airingPages: AIRING_PAGES, popularPages: POPULAR_PAGES });
 
 const entities = buildEntities(seed);
 const { pointers, calendars, searchIndex } = buildListings(seed);

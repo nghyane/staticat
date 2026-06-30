@@ -4,7 +4,7 @@
 // idempotent rev via hash, immutable meta.v{rev} first, head pointer last —
 // but writes via the R2 binding (no S3 creds). GitHub Actions is the default;
 // keep this only if you set up a relay.
-import { fetchAniList, fetchPopular } from '../../ingest/lib/anilist.js';
+import { fetchList, enrich } from '../../ingest/lib/jikan.js';
 import { paths, hash, buildEntities, buildListings } from '../../ingest/lib/contract.js';
 
 interface R2Bucket {
@@ -12,7 +12,7 @@ interface R2Bucket {
 	put(key: string, value: string, opts?: { httpMetadata?: { contentType?: string; cacheControl?: string } }): Promise<unknown>;
 	delete(key: string): Promise<unknown>;
 }
-interface Env { DATA: R2Bucket; AIRING_PAGES?: string; POPULAR_PAGES?: string; INGEST_SECRET?: string; RELAY_URL?: string }
+interface Env { DATA: R2Bucket; AIRING_PAGES?: string; POPULAR_PAGES?: string; ENRICH_LIMIT?: string; INGEST_SECRET?: string }
 
 const POINTER = 'public, max-age=30, stale-while-revalidate=300, stale-if-error=86400';
 const POPULAR = 'public, max-age=300, stale-while-revalidate=3600';
@@ -26,28 +26,48 @@ const cacheFor = (k: string) =>
 	: POINTER;
 const key = (p: string) => p.replace(/^\//, '');
 
-async function ingest(env: Env): Promise<{ titles: number; changed: number }> {
-	const air = Number(env.AIRING_PAGES ?? 3), pop = Number(env.POPULAR_PAGES ?? 4);
-	let seed: any[] = [];
-	for (let p = 1; p <= air; p++) seed.push(...(await fetchAniList(50, p, env.RELAY_URL ?? '')));
-	for (let p = 1; p <= pop; p++) seed.push(...(await fetchPopular(50, p, env.RELAY_URL ?? '')));
-	seed = [...new Map(seed.map((e) => [e.id, e])).values()];
-
-	const entities = buildEntities(seed);
-	const { pointers, calendars, searchIndex } = buildListings(seed);
+async function ingest(env: Env): Promise<{ titles: number; changed: number; enriched: number }> {
+	const air = Number(env.AIRING_PAGES ?? 2), pop = Number(env.POPULAR_PAGES ?? 2), lim = Number(env.ENRICH_LIMIT ?? 30);
 	const get = async (k: string) => (await env.DATA.get(k))?.text() ?? null;
 	const put = (k: string, v: string) => env.DATA.put(k, v, { httpMetadata: { contentType: 'application/json', cacheControl: cacheFor(k) } });
 	const now = Math.floor(Date.now() / 1000);
+	const idx = JSON.parse((await get('v1/_heads.json')) || '{}'); // { id: { rev, hash, enriched } }
 
-	const idx = JSON.parse((await get('v1/_heads.json')) || '{}');
+	// 1. fast list (schedule/feed) — no per-entity calls
+	const core = await fetchList({ airingPages: air, popularPages: pop, throttle: 380 });
+
+	// 2. carry prev enrichment forward; enrich un-enriched ones up to budget
+	//    (progressive — every run fully completes a slice). Schedule stays fresh.
+	let budget = lim, enriched = 0;
+	const metas: any[] = [];
+	for (const c of core) {
+		const prev = idx[c.id];
+		let meta = c;
+		if (prev) {
+			const pm = JSON.parse((await get(key(paths.entityMeta(c.id, prev.rev)))) || 'null');
+			if (pm) meta = { ...c, banner: c.banner ?? pm.banner, characters: pm.characters, valueAdd: pm.valueAdd, availability: pm.availability };
+			if (!prev.enriched && budget > 0) { await enrich(meta); meta._enriched = true; budget--; enriched++; }
+			else if (prev.enriched) meta._enriched = true;
+		} else if (budget > 0) {
+			await enrich(meta); meta._enriched = true; budget--; enriched++;
+		}
+		metas.push(meta);
+	}
+
+	const entities = buildEntities(metas);
+	const { pointers, calendars, searchIndex } = buildListings(metas);
+	const enrichedOf = new Map(metas.map((m) => [m.id, !!m._enriched]));
+
+	// 3. immutable meta.v{rev} first (only changed), pointer head last
 	const headPuts: [string, string][] = [];
 	let changed = 0;
 	for (const e of entities) {
 		const h = hash(JSON.stringify(e));
 		const prev = idx[e.id];
-		if (prev && prev.hash === h) continue;
+		const en = enrichedOf.get(e.id) ?? prev?.enriched ?? false;
+		if (prev && prev.hash === h && prev.enriched === en) continue;
 		const rev = (prev?.rev ?? 0) + 1;
-		idx[e.id] = { rev, hash: h };
+		idx[e.id] = { rev, hash: h, enriched: en };
 		await put(key(paths.entityMeta(e.id, rev)), JSON.stringify({ rev, ...e }));
 		headPuts.push([key(paths.entityHead(e.id)), JSON.stringify({ id: e.id, rev, updatedAt: now, hash: h })]);
 		changed++;
@@ -65,7 +85,7 @@ async function ingest(env: Env): Promise<{ titles: number; changed: number }> {
 	for (const [p, v] of [...pointers, ...calendars]) await put(key(p), JSON.stringify(v));
 	for (const [k, body] of headPuts) await put(k, body);
 	await env.DATA.put('v1/_heads.json', JSON.stringify(idx), { httpMetadata: { cacheControl: 'no-store' } });
-	return { titles: seed.length, changed };
+	return { titles: core.length, changed, enriched };
 }
 
 export default {
