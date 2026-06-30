@@ -60,7 +60,11 @@ export default {
 			if (env.INGEST_SECRET && req.headers.get('authorization') !== `Bearer ${env.INGEST_SECRET}`) {
 				return new Response('unauthorized', { status: 401 });
 			}
-			return Response.json({ ok: true, ...(await ingest(env)) });
+			try {
+				return Response.json({ ok: true, ...(await ingest(env)) });
+			} catch (e) {
+				return Response.json({ ok: false, error: String(e), stack: (e as Error)?.stack?.split('\n').slice(0, 6) }, { status: 500 });
+			}
 		}
 		return new Response('watchdex ingest worker', { status: 200 });
 	},

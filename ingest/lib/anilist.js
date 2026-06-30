@@ -109,7 +109,13 @@ export function toCard(e) {
 async function gql(query, variables) {
   const res = await fetch(ENDPOINT, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', accept: 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      accept: 'application/json',
+      // AniList 403s requests from datacenter IPs with no/default UA. A
+      // descriptive identifying UA gets the Cloudflare Worker through.
+      'user-agent': 'Watchdex/1.0 (+https://watchdex.pages.dev; contact admin)',
+    },
     body: JSON.stringify({ query, variables }),
   });
   if (!res.ok) throw new Error(`AniList HTTP ${res.status}: ${await res.text().catch(() => '')}`);
