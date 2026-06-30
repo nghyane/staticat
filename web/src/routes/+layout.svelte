@@ -5,8 +5,11 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
+	import { afterNavigate } from '$app/navigation';
 
 	let { children } = $props();
+	let menuOpen = $state(false);
+	afterNavigate(() => (menuOpen = false)); // close drawer on navigation
 
 	// content verticals (what you're browsing) — separate axis from tools
 	const verticals = [
@@ -58,8 +61,20 @@
 				<svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.6"/><path d="m11 11 3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
 				<span class="ph">Search</span>
 			</a>
+			<button class="burger" aria-label="Menu" aria-expanded={menuOpen} onclick={() => (menuOpen = !menuOpen)}>
+				{#if menuOpen}<svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+				{:else}<svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"><path d="M2.5 5h13M2.5 9h13M2.5 13h13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>{/if}
+			</button>
 		</div>
 	</div>
+	{#if menuOpen}
+		<nav class="drawer" aria-label="Menu">
+			<div class="wrap">
+				{#each verticals as v (v.href)}<a href={v.href} class="d-link" class:on={isOn(v.href)}>{v.label}</a>{/each}
+				<a href="/calendar" class="d-link" class:on={page.url.pathname.startsWith('/calendar')}>Schedule</a>
+			</div>
+		</nav>
+	{/if}
 </header>
 
 <main>{@render children()}</main>
@@ -91,8 +106,21 @@
 	.search.on { color: var(--muted); }
 	.search:focus-visible { box-shadow: 0 0 0 2px var(--accent); color: var(--muted); }
 	.search .ph { flex: 1; min-width: 0; }
+
+	/* mobile menu */
+	.burger { display: none; align-items: center; justify-content: center; width: 2.25rem; height: 2.25rem; border: 0; background: none; color: var(--ink); cursor: pointer; border-radius: 10px; }
+	.burger:hover { background: var(--bg-soft); }
+	.drawer { border-top: 1px solid var(--line); background: var(--bg); padding: 0.5rem 0 0.75rem; }
+	.drawer .wrap { display: flex; flex-direction: column; }
+	.d-link { padding: 0.7rem 0.25rem; font-size: var(--t-md); font-weight: 500; color: var(--muted); }
+	.d-link.on { color: var(--ink); font-weight: 600; }
+
 	main { padding-bottom: 5rem; }
 	.ftr { border-top: 1px solid var(--line); color: var(--faint); font-size: var(--t-xs); padding-block: 2rem; }
-	@media (max-width: 700px) { .tool span { display: none; } .tool { padding: 0 0.5rem; } }
+	/* below 760px: collapse verticals + Schedule into the drawer */
+	@media (max-width: 760px) {
+		.verticals, .tool { display: none; }
+		.burger { display: inline-flex; }
+	}
 	@media (max-width: 560px) { .search { width: 2.25rem; padding: 0; justify-content: center; } .search .ph { display: none; } .hdr-in { gap: 1rem; } }
 </style>

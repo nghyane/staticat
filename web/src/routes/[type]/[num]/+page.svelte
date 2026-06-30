@@ -231,7 +231,7 @@
 	.hero { padding-bottom: 2.5rem; }
 	.banner { position: relative; height: 300px; overflow: hidden; }
 	.banner img { width: 100%; height: 100%; object-fit: cover; }
-	.banner::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, transparent 45%, var(--bg) 98%); }
+	.banner::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, transparent 20%, color-mix(in srgb, var(--bg) 55%, transparent) 60%, var(--bg) 96%); }
 	.banner-bar { position: absolute; top: 1rem; inset-inline: 0; z-index: 2; }
 	.topbar { padding-top: 1.25rem; }
 	.back { display: inline-block; color: var(--muted); font-size: var(--t-sm); }
@@ -244,7 +244,7 @@
 	.poster { width: 11rem; flex: none; aspect-ratio: 23/32; border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
 	.poster img { width: 100%; height: 100%; object-fit: cover; }
 	.head { min-width: 0; padding-bottom: 0.4rem; }
-	.h1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
+	.h1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; text-shadow: 0 1px 24px var(--bg), 0 1px 4px var(--bg); }
 	.alt { color: var(--muted); margin-top: 0.45rem; font-size: var(--t-sm); }
 	.metaline { display: flex; align-items: center; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.9rem; font-size: var(--t-sm); color: var(--muted); }
 	.m + .m::before, .score + .m::before { content: '·'; color: var(--faint); margin-right: 0.55rem; }
@@ -284,11 +284,11 @@
 	/* GAME store-style layout */
 	.ghero { position: relative; height: 360px; max-height: 46vh; overflow: hidden; background: var(--bg-soft); }
 	.gbg { width: 100%; height: 100%; object-fit: cover; }
-	.ghero::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, transparent 40%, var(--bg) 99%); }
+	.ghero::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, transparent 15%, color-mix(in srgb, var(--bg) 60%, transparent) 55%, var(--bg) 96%); }
 	.gbar { position: absolute; top: 1rem; inset-inline: 0; z-index: 2; }
 	.gwrap { display: grid; grid-template-columns: 1fr 17rem; gap: 2.75rem; align-items: start; margin-top: -2.5rem; position: relative; z-index: 1; padding-bottom: 2rem; }
 	.gmain { min-width: 0; }
-	.gh1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
+	.gh1 { font-family: var(--font-display); font-size: var(--t-2xl); font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; text-shadow: 0 1px 24px var(--bg), 0 1px 4px var(--bg); }
 	.gmeta { display: flex; align-items: center; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.9rem; font-size: var(--t-sm); color: var(--muted); }
 	.gmeta .m + .m::before, .mc + .m::before { content: '·'; color: var(--faint); margin-right: 0.55rem; }
 	.mc { font-family: var(--font-mono); font-weight: 700; color: #fff; background: var(--faint); padding: 0.12rem 0.5rem; border-radius: 6px; } /* metacritic */
