@@ -26,10 +26,17 @@ const jsonLd = {
 };
 ---
 <Base title={`${a.title} — where to watch & next episode | Watchdex`} desc={a.description?.slice(0, 155) ?? `When ${a.title} airs next and where to watch it.`}>
-  <section class="hero" style={a.color ? `--c:${a.color}` : undefined}>
-    <div class="wrap"><a class="back" href="/">&larr; Schedule</a></div>
-    <div class="wrap hero-in">
-      <div class="poster"><img src={a.cover} alt={a.title} width="220" height="311" fetchpriority="high" /></div>
+  <section class="hero">
+    {a.banner ? (
+      <div class="banner">
+        <img src={a.banner} alt="" width="1280" height="320" fetchpriority="high" />
+        <div class="banner-bar"><div class="wrap"><a class="back over" href="/">&larr; Schedule</a></div></div>
+      </div>
+    ) : (
+      <div class="wrap topbar"><a class="back" href="/">&larr; Schedule</a></div>
+    )}
+    <div class="wrap hero-in" class:list={[{ pull: a.banner }]}>
+      <div class="poster"><img src={a.cover} alt={a.title} width="220" height="311" /></div>
       <div class="head">
         <h1 class="h1">{a.title}</h1>
         {(a.english || a.native) && <p class="alt">{[a.english, a.native].filter((x) => x && x !== a.title).join('  ·  ')}</p>}
@@ -99,10 +106,18 @@ const jsonLd = {
 </Base>
 
 <style>
-  .hero { padding-block: 1.5rem 2.5rem; }
-  .back { display: inline-block; color: var(--muted); font-size: var(--t-sm); margin-bottom: 1.5rem; }
+  .hero { padding-bottom: 2.5rem; }
+  .banner { position: relative; height: 300px; overflow: hidden; }
+  .banner img { width: 100%; height: 100%; object-fit: cover; }
+  .banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 45%, var(--bg) 98%); }
+  .banner-bar { position: absolute; top: 1rem; inset-inline: 0; }
+  .topbar { padding-top: 1.25rem; }
+  .back { display: inline-block; color: var(--muted); font-size: var(--t-sm); }
   .back:hover { color: var(--accent); }
+  .back.over { color: #fff; background: rgba(15,18,25,.42); backdrop-filter: blur(8px); padding: 0.4rem 0.85rem; border-radius: 999px; }
+  .back.over:hover { background: rgba(15,18,25,.62); color: #fff; }
   .hero-in { display: flex; gap: 2.25rem; align-items: flex-end; }
+  .hero-in.pull { margin-top: -130px; position: relative; z-index: 1; }
   .poster { width: 11rem; flex: none; aspect-ratio: 23/32; border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
   .poster img { width: 100%; height: 100%; object-fit: cover; }
   .head { min-width: 0; padding-bottom: 0.4rem; }
@@ -120,13 +135,14 @@ const jsonLd = {
   .next-line :global(.cd-num.big) { color: var(--accent); font-weight: 700; min-width: 6ch; }
 
   .sec { margin-bottom: 2.5rem; }
-  .sec-h { font-family: var(--font-display); font-size: var(--t-md); font-weight: 700; letter-spacing: -0.01em; padding-bottom: 0.7rem; border-bottom: 1px solid var(--line); margin-bottom: 1.1rem; }
+  .sec-h { font-family: var(--font-display); font-size: var(--t-md); font-weight: 700; letter-spacing: -0.01em; margin-bottom: 1.1rem; }
   .desc { color: var(--muted); line-height: 1.8; max-width: 70ch; }
 
   .chars { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
   .char { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; background: var(--bg-soft); border-radius: var(--r-sm); padding: 0.5rem 0.6rem; overflow: hidden; }
-  .cside, .vside { display: flex; align-items: center; gap: 0.55rem; min-width: 0; }
+  .cside, .vside { display: flex; align-items: center; gap: 0.55rem; min-width: 0; flex: 1; }
   .vside { flex-direction: row-reverse; text-align: right; }
+  .vside:empty { display: none; }
   .cim, .vim { width: 2.1rem; height: 2.9rem; border-radius: 5px; object-fit: cover; flex: none; }
   .cinfo { display: flex; flex-direction: column; min-width: 0; }
   .cname, .vname { font-size: var(--t-xs); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -151,6 +167,8 @@ const jsonLd = {
     .side .panel { flex: 1; min-width: 13rem; }
   }
   @media (max-width: 560px) {
+    .banner { height: 190px; }
+    .hero-in.pull { margin-top: -80px; }
     .hero-in { gap: 1.1rem; }
     .poster { width: 6.5rem; }
     .h1 { font-size: var(--t-xl); }
