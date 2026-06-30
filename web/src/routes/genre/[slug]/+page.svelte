@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import BrowseGrid from '$lib/components/BrowseGrid.svelte';
-	import { loadSearch } from '$lib/catalog';
-	import { slugifyGenre, type CatalogEntry } from '$lib/types';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { genreQuery } from '$lib/data';
 	import { SITE } from '$lib/site';
 	import type { PageData } from './$types';
 	let { data }: { data: PageData } = $props();
@@ -16,12 +15,8 @@
 	const desc = $derived(`Browse the best ${data.name} ${kindList} ranked by score, with ratings and where to watch or read.`);
 
 	// grid hydrates fresh from R2 — prerendered HTML bakes only the skeleton above
-	let items = $state<CatalogEntry[]>([]);
-	onMount(async () => {
-		items = (await loadSearch())
-			.filter((e) => e.genres.some((g) => slugifyGenre(g) === data.slug))
-			.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
-	});
+	const q = createQuery(() => genreQuery(data.slug));
+	const items = $derived(q.data ?? []);
 
 	const jsonLd = $derived({
 		'@context': 'https://schema.org',

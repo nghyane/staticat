@@ -1,27 +1,23 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import Hero from './Hero.svelte';
 	import ScheduleRow from './ScheduleRow.svelte';
 	import MediaCard from './MediaCard.svelte';
-	import { loadFeed, loadPopular, loadSearch } from '$lib/catalog';
-	import { slugifyGenre, type CatalogEntry, type Kind } from '$lib/types';
+	import { createQuery } from '@tanstack/svelte-query';
+	import { catalogQuery, feedQuery, popularQuery } from '$lib/data';
+	import { slugifyGenre, type Kind } from '$lib/types';
 
 	// `genres` is the stable SEO skeleton (prerendered nav links). The hero and
-	// card grids are volatile, so they're fetched fresh from R2 on the client —
-	// the prerendered HTML never bakes them, so updates need no rebuild.
+	// card grids are volatile, so they're declared as queries — fetched fresh
+	// from R2 on the client, never baked into the prerendered HTML.
 	let { kind, genres }: { kind: Kind; genres: string[] } = $props();
 	const label = $derived(kind[0].toUpperCase() + kind.slice(1));
 
-	let feed = $state<CatalogEntry[]>([]);
-	let popular = $state<CatalogEntry[]>([]);
-	let index = $state<CatalogEntry[]>([]);
-	const anime = (e: CatalogEntry) => e.kind === 'anime';
-	onMount(async () => {
-		const [f, p, i] = await Promise.all([loadFeed(0), loadPopular('day'), loadSearch().catch(() => [])]);
-		feed = f.filter(anime);
-		popular = p.filter(anime);
-		index = i.filter(anime);
-	});
+	const feedQ = createQuery(() => feedQuery());
+	const popularQ = createQuery(() => popularQuery());
+	const indexQ = createQuery(() => catalogQuery('anime'));
+	const feed = $derived(feedQ.data ?? []);
+	const popular = $derived(popularQ.data ?? []);
+	const index = $derived(indexQ.data ?? []);
 
 	const featured = $derived(feed.find((e) => e.schedule?.airAt) ?? feed[0] ?? null);
 	const upNext = $derived(feed.slice(0, 8));

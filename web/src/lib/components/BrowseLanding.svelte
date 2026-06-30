@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { createQuery } from '@tanstack/svelte-query';
 	import MediaCard from './MediaCard.svelte';
-	import { loadSearch } from '$lib/catalog';
-	import { slugifyGenre, type CatalogEntry, type Kind } from '$lib/types';
+	import { catalogQuery } from '$lib/data';
+	import { slugifyGenre, type Kind } from '$lib/types';
 	import { SITE } from '$lib/site';
 
 	// `genres` is the stable SEO skeleton (prerendered nav links). The card
@@ -11,10 +11,10 @@
 	let { kind, genres }: { kind: Kind; genres: string[] } = $props();
 	const canonical = $derived(`${SITE}/${kind}`);
 
-	let items = $state<CatalogEntry[]>([]);
-	onMount(async () => {
-		items = (await loadSearch()).filter((e) => e.kind === kind);
-	});
+	// volatile grid — declared as a query, not hand-fetched. SWR cache + dedup
+	// come for free; navigating back to this page is instant.
+	const q = createQuery(() => catalogQuery(kind));
+	const items = $derived(q.data ?? []);
 
 	// per-kind copy — distinct keywords/intent (anti-thin-content, SEO)
 	const COPY: Record<string, { eyebrow: string; h1: string; intro: string }> = {

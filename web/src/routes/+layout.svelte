@@ -6,8 +6,11 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { afterNavigate } from '$app/navigation';
+	import { QueryClientProvider } from '@tanstack/svelte-query';
+	import { makeQueryClient } from '$lib/data';
 
 	let { children } = $props();
+	const queryClient = makeQueryClient();
 	let menuOpen = $state(false);
 	afterNavigate(() => (menuOpen = false)); // close drawer on navigation
 
@@ -42,6 +45,7 @@
 	});
 </script>
 
+<QueryClientProvider client={queryClient}>
 <header class="hdr">
 	<div class="wrap hdr-in">
 		<a class="brand" href="/"><span class="mark"></span>watchdex</a>
@@ -80,6 +84,7 @@
 <main>{@render children()}</main>
 
 <footer class="ftr"><div class="wrap">Data from MyAnimeList &middot; Times in your local timezone</div></footer>
+</QueryClientProvider>
 
 <style>
 	.hdr { position: sticky; top: 0; z-index: 20; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
