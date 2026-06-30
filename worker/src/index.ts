@@ -72,8 +72,10 @@ async function ingest(env: Env): Promise<{ titles: number; changed: number; enri
 		let meta = c;
 		if (prev) {
 			const pm = JSON.parse((await get(key(paths.entityMeta(c.id, prev.rev)))) || 'null');
-			if (pm) meta = { ...c, banner: c.banner ?? pm.banner, characters: pm.characters, valueAdd: pm.valueAdd, availability: c.availability?.length ? c.availability : pm.availability };
-			if (!prev.enriched && budget > 0) { if ((await enrichBy(meta)) === null) continue; meta._enriched = true; budget--; enriched++; }
+			if (pm) meta = { ...c, genres: c.genres?.length ? c.genres : (pm.genres ?? c.genres), rating: c.rating ?? pm.rating, year: c.year ?? pm.year, alt: c.alt?.length ? c.alt : pm.alt, banner: c.banner ?? pm.banner, color: c.color ?? pm.color, characters: pm.characters, valueAdd: pm.valueAdd, details: { ...pm.details, ...c.details }, availability: c.availability?.length ? c.availability : pm.availability };
+			// re-enrich if never enriched, or if carried data is incomplete (heals
+				// games whose genres/rating were wiped by the old partial-merge bug)
+				if ((!prev.enriched || (meta.kind === 'game' && !meta.genres?.length)) && budget > 0) { if ((await enrichBy(meta)) === null) continue; meta._enriched = true; budget--; enriched++; }
 			else if (prev.enriched) meta._enriched = true;
 		} else if (budget > 0) {
 			if ((await enrichBy(meta)) === null) continue; meta._enriched = true; budget--; enriched++;
