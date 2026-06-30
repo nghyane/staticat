@@ -13,10 +13,11 @@ node_modules
 Thumbs.db
 
 # Env
-.env
 .env.*
 !.env.example
 !.env.test
+# .env here holds only PUBLIC build constants (public URLs, no secrets) — commit it
+!.env
 
 # Vite
 vite.config.js.timestamp-*

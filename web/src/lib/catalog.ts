@@ -1,9 +1,13 @@
 // Read path: fetch the contract from R2 (PUBLIC_DATA_BASE in prod; same-origin
 // /v1 in dev). Mirrors contract/discovery.ts. Session-cached.
-import { env } from '$env/dynamic/public';
+//
+// STATIC (build-time inlined), not dynamic: prerendered pages are served as
+// pure static assets with no worker, so a runtime-resolved env never reaches
+// the client. $env/static/public bakes the value into the client bundle.
+import { PUBLIC_DATA_BASE } from '$env/static/public';
 import type { CatalogEntry, EntityMeta, EntityHead, SearchHead } from './types';
 
-const BASE = (env.PUBLIC_DATA_BASE ?? '').replace(/\/$/, '');
+const BASE = (PUBLIC_DATA_BASE || '').replace(/\/$/, '');
 const idPath = (id: string) => id.replace(':', '/');
 
 async function J<T>(f: typeof fetch, path: string): Promise<T> {
