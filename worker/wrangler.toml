@@ -10,7 +10,7 @@ crons = ["0 */2 * * *"]
 
 [vars]
 AIRING_PAGES = "2"   # seasons/now → schedule/feed
-POPULAR_PAGES = "2"  # top/anime → catalog depth (related resolves)
+POPULAR_PAGES = "6"  # top/anime → catalog breadth (search covers classics)
 ENRICH_LIMIT = "30"  # per-entity (relations/recs/chars/streaming) calls per run
 
 # SPA reads this bucket (PUBLIC_DATA_BASE); worker writes /v1/** via binding.
