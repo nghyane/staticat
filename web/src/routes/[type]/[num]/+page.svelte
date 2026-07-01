@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Countdown from '$lib/components/Countdown.svelte';
-	import MediaCard from '$lib/components/MediaCard.svelte';
+	import CardRail from '$lib/components/CardRail.svelte';
 	import { blob, slugifyGenre } from '$lib/types';
 	import type { PageData } from './$types';
 
@@ -119,9 +119,7 @@
 			{#if d.kind === 'game' && d.screenshots?.length}
 				<section class="sec"><h2 class="sec-h">Screenshots</h2><div class="shots">{#each d.screenshots as s}<img class="shot" src={blob(s)} alt="" loading="lazy" />{/each}</div></section>
 			{/if}
-			{#if data.sameGenre.length > 0}
-				<section class="sec"><h2 class="sec-h">{moreLabel}</h2><div class="mini-grid">{#each data.sameGenre as m (m.id)}<MediaCard a={m} mini />{/each}</div></section>
-			{/if}
+			<CardRail title={moreLabel} items={data.sameGenre} />
 		</main>
 		<aside class="gside">
 			{#if a.availability[0]}
@@ -197,17 +195,9 @@
 			</section>
 		{/if}
 
-		{#if data.related.length > 0}
-			<section class="sec"><h2 class="sec-h">Related</h2><div class="mini-grid">{#each data.related as m (m.id)}<MediaCard a={m} mini />{/each}</div></section>
-		{/if}
-
-		{#if data.recommendations.length > 0}
-			<section class="sec"><h2 class="sec-h">You might also like</h2><div class="mini-grid">{#each data.recommendations as m (m.id)}<MediaCard a={m} mini />{/each}</div></section>
-		{/if}
-
-		{#if data.sameGenre.length > 0}
-			<section class="sec"><h2 class="sec-h">{moreLabel}</h2><div class="mini-grid">{#each data.sameGenre as m (m.id)}<MediaCard a={m} mini />{/each}</div></section>
-		{/if}
+		<CardRail title="Related" items={data.related} />
+		<CardRail title="You might also like" items={data.recommendations} />
+		<CardRail title={moreLabel} items={data.sameGenre} />
 	</main>
 
 	<aside class="side">
@@ -257,8 +247,6 @@
 	.next-line .in { color: var(--muted); font-size: var(--t-md); }
 	.next-line :global(.cd-num.big) { color: var(--accent); font-weight: 700; min-width: 6ch; }
 
-	.sec { margin-bottom: 2.5rem; }
-	.sec-h { font-family: var(--font-display); font-size: var(--t-md); font-weight: 700; letter-spacing: -0.01em; margin-bottom: 1.1rem; }
 	.desc { color: var(--muted); line-height: 1.8; max-width: 70ch; }
 
 	.chars { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
