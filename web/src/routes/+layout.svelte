@@ -3,7 +3,6 @@
 	import '@fontsource-variable/hanken-grotesk/index.css';
 	import '@fontsource/space-mono/index.css';
 	import '../app.css';
-	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { afterNavigate } from '$app/navigation';
 	import { QueryClientProvider } from '@tanstack/svelte-query';
@@ -23,26 +22,6 @@
 		{ label: 'Games', href: '/game' }
 	];
 	const isOn = (href: string) => (href === '/' ? page.url.pathname === '/' || page.url.pathname.startsWith('/anime') : page.url.pathname.startsWith(href));
-
-	// One shared interval drives every [data-airat] countdown. Re-queried each
-	// tick so client navigation needs no re-binding. Zero layout shift: the
-	// element reserves its width.
-	onMount(() => {
-		const pad = (n: number) => String(n).padStart(2, '0');
-		const tick = () => {
-			const now = Date.now() / 1000;
-			for (const el of document.querySelectorAll<HTMLElement>('[data-airat]')) {
-				const s = Math.floor(Number(el.dataset.airat) - now);
-				if (s <= 0) { el.textContent = 'now'; el.classList.add('on'); continue; }
-				const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-				el.textContent = d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${pad(m)}m` : `${pad(m)}:${pad(sec)}`;
-				el.classList.toggle('soon', s < 3600);
-			}
-		};
-		tick();
-		const timer = setInterval(tick, 1000);
-		return () => clearInterval(timer);
-	});
 </script>
 
 <QueryClientProvider client={queryClient}>
