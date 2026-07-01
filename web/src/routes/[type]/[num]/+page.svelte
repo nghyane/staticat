@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Countdown from '$lib/components/Countdown.svelte';
-	import MiniCard from '$lib/components/MiniCard.svelte';
+	import MediaCard from '$lib/components/MediaCard.svelte';
 	import { blob, slugifyGenre } from '$lib/types';
 	import type { PageData } from './$types';
 
@@ -120,7 +120,7 @@
 				<section class="sec"><h2 class="sec-h">Screenshots</h2><div class="shots">{#each d.screenshots as s}<img class="shot" src={blob(s)} alt="" loading="lazy" />{/each}</div></section>
 			{/if}
 			{#if data.sameGenre.length > 0}
-				<section class="sec"><h2 class="sec-h">{moreLabel}</h2><div class="mini-grid">{#each data.sameGenre as m (m.id)}<MiniCard {m} />{/each}</div></section>
+				<section class="sec"><h2 class="sec-h">{moreLabel}</h2><div class="mini-grid">{#each data.sameGenre as m (m.id)}<MediaCard a={m} mini />{/each}</div></section>
 			{/if}
 		</main>
 		<aside class="gside">
@@ -198,15 +198,15 @@
 		{/if}
 
 		{#if data.related.length > 0}
-			<section class="sec"><h2 class="sec-h">Related</h2><div class="mini-grid">{#each data.related as m (m.id)}<MiniCard {m} />{/each}</div></section>
+			<section class="sec"><h2 class="sec-h">Related</h2><div class="mini-grid">{#each data.related as m (m.id)}<MediaCard a={m} mini />{/each}</div></section>
 		{/if}
 
 		{#if data.recommendations.length > 0}
-			<section class="sec"><h2 class="sec-h">You might also like</h2><div class="mini-grid">{#each data.recommendations as m (m.id)}<MiniCard {m} />{/each}</div></section>
+			<section class="sec"><h2 class="sec-h">You might also like</h2><div class="mini-grid">{#each data.recommendations as m (m.id)}<MediaCard a={m} mini />{/each}</div></section>
 		{/if}
 
 		{#if data.sameGenre.length > 0}
-			<section class="sec"><h2 class="sec-h">{moreLabel}</h2><div class="mini-grid">{#each data.sameGenre as m (m.id)}<MiniCard {m} />{/each}</div></section>
+			<section class="sec"><h2 class="sec-h">{moreLabel}</h2><div class="mini-grid">{#each data.sameGenre as m (m.id)}<MediaCard a={m} mini />{/each}</div></section>
 		{/if}
 	</main>
 
